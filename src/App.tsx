@@ -11,6 +11,9 @@ import { useCamera } from './hooks/useCamera';
 import { processPhysicsQuestion, textToSpeech } from './services/apiService';
 import { physicsQuestions } from './data/physicsQuestions';
 import './App.css';
+import NameEmailModal from './components/NameEmailModal';
+import axios from 'axios';
+
 
 interface InterviewSession {
   id: string;
@@ -33,17 +36,55 @@ interface QuestionResponse {
 
 const App: React.FC = () => {
   const [session, setSession] = useState<InterviewSession | null>(null);
-  const [currentQuestion, setCurrentQuestion] = useState<string>('');
+  const [currentQuestion, setCurrentQuestion] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [interviewStarted, setInterviewStarted] = useState(false);
   const [questionStartTime, setQuestionStartTime] = useState<number>(0);
   const [waitingForAnswer, setWaitingForAnswer] = useState(false);
   const [microphoneReady, setMicrophoneReady] = useState(false);
   const [audioPlaying, setAudioPlaying] = useState(false);
-  
+  const [showModal, setShowModal] = useState(false);
+  const [fetchQueData, setFetchQueData] = useState(false);
+  const [interviewQuestions, setInterviewQuestions] = useState<any[]>([]);
+console.log(fetchQueData)
   const questionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const interviewTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const processingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("token")) {
+      setShowModal(true);
+    }
+  }, []);
+
+  const handleModalSubmit = async (name: string, email: string) => {
+
+    try {
+      const response = await axios.post(`${import.meta.env.VITE_AIINTERVIEW_API_KEY}/jobposts/join-job-link`, {
+        token: new URLSearchParams(window.location.search).get("token"),
+        user: email
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+       if (response.data) {
+         setShowModal(false);
+         setFetchQueData(response.data)
+         if (response.data.questions && Array.isArray(response.data.questions)) {
+           setInterviewQuestions(response.data.questions);
+           setCurrentQuestion(response.data.questions[0]);
+         }
+       }
+      // You can handle the response here (e.g., save data, show a message, etc.)
+      console.log('Join job link response:', response.data);
+    } catch (error) {
+      // Handle error (show error message, etc.)
+      console.error('Error joining job link:', error);
+    }
+  };
+
 
   const {
     isListening,
@@ -175,14 +216,14 @@ const App: React.FC = () => {
   const askNextQuestion = useCallback(async (currentSession: InterviewSession) => {
     console.log('❓ Asking question', currentSession.currentQuestionIndex + 1);
     
-    if (currentSession.currentQuestionIndex >= physicsQuestions.length) {
+    if (currentSession.currentQuestionIndex >= interviewQuestions.length) {
       console.log('🏁 Interview completed');
       endInterview();
       return;
     }
 
-    const question = physicsQuestions[currentSession.currentQuestionIndex];
-    setCurrentQuestion(question);
+    const questionObj = interviewQuestions[currentSession.currentQuestionIndex];
+    setCurrentQuestion(questionObj);
     setQuestionStartTime(Date.now());
     setWaitingForAnswer(false);
     setAudioPlaying(false);
@@ -193,7 +234,7 @@ const App: React.FC = () => {
       console.log('🔊 Playing question...');
       setAudioPlaying(true);
       
-      const voiceResponse = await textToSpeech(question);
+      const voiceResponse = await textToSpeech(questionObj.question);
       
       if (voiceResponse) {
         console.log('🎵 Playing question audio...');
@@ -282,12 +323,12 @@ const App: React.FC = () => {
 
     try {
       console.log('🤖 Evaluating answer...');
-      const evaluation = await processPhysicsQuestion(currentQuestion, trimmedAnswer);
+      const evaluation = await processPhysicsQuestion(currentQuestion.question, trimmedAnswer);
       console.log('📊 Evaluation completed:', evaluation);
       
       // Create question response
       const questionResponse: QuestionResponse = {
-        question: currentQuestion,
+        question: currentQuestion.question,
         userAnswer: trimmedAnswer,
         aiEvaluation: evaluation.feedback,
         score: evaluation.score,
@@ -334,7 +375,7 @@ const App: React.FC = () => {
       
       // Use fallback response
       const fallbackResponse: QuestionResponse = {
-        question: currentQuestion,
+        question: currentQuestion.question,
         userAnswer: trimmedAnswer,
         aiEvaluation: 'Answer received, moving forward!',
         score: 5,
@@ -368,7 +409,7 @@ const App: React.FC = () => {
       stopListening();
       
       const timeoutResponse: QuestionResponse = {
-        question: currentQuestion,
+        question: currentQuestion.question,
         userAnswer: transcript || 'No response (timeout)',
         aiEvaluation: 'Time up! Moving to next question.',
         score: transcript ? 2 : 0,
@@ -473,7 +514,7 @@ const App: React.FC = () => {
   const resetInterview = useCallback(() => {
     console.log('🔄 Resetting interview');
     setSession(null);
-    setCurrentQuestion('');
+    setCurrentQuestion(null);
     setInterviewStarted(false);
     setIsProcessing(false);
     setWaitingForAnswer(false);
@@ -497,6 +538,14 @@ const App: React.FC = () => {
     });
   }, [isSupported, microphoneReady, isListening, waitingForAnswer, isProcessing, audioPlaying, voiceActivity, isSpeaking, transcript]);
 
+  useEffect(() => {
+    if (interviewQuestions.length === 0) {
+      // fallback: convert static array to objects if needed
+      setInterviewQuestions(physicsQuestions.map(q => ({ question: q })));
+      setCurrentQuestion({ question: physicsQuestions[0] });
+    }
+  }, [interviewQuestions]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-blue-50 to-purple-100">
       <div className="container mx-auto px-4 py-6 max-w-7xl">
@@ -507,7 +556,7 @@ const App: React.FC = () => {
               <Brain className="w-8 h-8" />
             </div>
             <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-              Physics Interview AI
+              {fetchQueData?.jobTitle ?? "Physics"} Interview AI
             </h1>
             <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl text-white">
               <Camera className="w-8 h-8" />
@@ -528,11 +577,11 @@ const App: React.FC = () => {
                   <Award className="w-12 h-12 text-indigo-600" />
                 </div>
                 <h2 className="text-2xl font-bold text-gray-800 mb-4">
-                  Ready for Your Smart Physics Interview?
+                  Ready for Your Smart {fetchQueData?.jobTitle ?? "Physics"} Interview?
                 </h2>
                 <p className="text-gray-600 mb-6">
                   🎤 <strong>Intelligent Voice Detection!</strong> The system understands when you're speaking. 
-                  Answer {physicsQuestions.length} questions naturally.
+                  Answer {interviewQuestions.length} questions naturally.
                   <br /><br />
                   <strong>Speak at your own pace - no rushing needed!</strong>
                 </p>
@@ -638,7 +687,7 @@ const App: React.FC = () => {
               {session && (
                 <InterviewProgress 
                   session={session}
-                  totalQuestions={physicsQuestions.length}
+                  totalQuestions={interviewQuestions.length}
                 />
               )}
               
@@ -683,6 +732,7 @@ const App: React.FC = () => {
           </div>
         )}
       </div>
+      <NameEmailModal isOpen={showModal} onSubmit={handleModalSubmit} />
     </div>
   );
 };

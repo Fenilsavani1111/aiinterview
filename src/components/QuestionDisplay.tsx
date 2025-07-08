@@ -2,7 +2,7 @@ import React from 'react';
 import { MessageCircle, Loader2, Mic, MicOff, Volume2, Clock, CheckCircle, AlertCircle, Activity } from 'lucide-react';
 
 interface QuestionDisplayProps {
-  question: string;
+  question: any;
   isProcessing: boolean;
   isListening: boolean;
   waitingForAnswer: boolean;
@@ -16,6 +16,8 @@ export const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
   waitingForAnswer,
   transcript
 }) => {
+  const questionText = question?.question || question || "";
+
   const getTranscriptWordCount = () => {
     return transcript.trim().split(/\s+/).filter(word => word.length > 0).length;
   };
@@ -56,7 +58,7 @@ export const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
       {question ? (
         <div className="space-y-6">
           <div className="p-6 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl border border-indigo-100">
-            <p className="text-lg text-gray-800 leading-relaxed">{question}</p>
+            <p className="text-lg text-gray-800 leading-relaxed">{questionText}</p>
           </div>
 
           {/* Waiting for Answer State */}
