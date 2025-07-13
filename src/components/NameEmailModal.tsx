@@ -52,10 +52,7 @@ const NameEmailModal: React.FC<Props> = ({
         .email("Invalid email address")
         .required("Email is required"),
       resumeUrl: Yup.string().url("Enter a valid URL"),
-      mobile: Yup.string().matches(
-        /^[0-9]{10}$/,
-        "Mobile must be exactly 10 digits"
-      ),
+      mobile: Yup.string().required("Mobile is required"),
       experienceLevel: Yup.string(),
       designation: Yup.string(),
       location: Yup.string(),
@@ -222,6 +219,7 @@ const NameEmailModal: React.FC<Props> = ({
                     placeholder="Enter skill"
                   />
                   <button
+                    type="button"
                     onClick={() => {
                       let damiskills = values.skills.filter(
                         (_, i) => i !== index
@@ -238,6 +236,7 @@ const NameEmailModal: React.FC<Props> = ({
                 </div>
               ))}
               <button
+                type="button"
                 onClick={() => {
                   setValues({
                     ...values,
@@ -264,7 +263,8 @@ const NameEmailModal: React.FC<Props> = ({
           ) : (
             <button
               type="submit"
-              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg w-full transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-blue-900/30"
+              disabled={isResumeUploading}
+              className="mt-5 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg w-full transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-blue-900/30"
             >
               Submit
             </button>
