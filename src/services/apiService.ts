@@ -82,19 +82,19 @@ Please analyze this answer contextually and provide appropriate feedback based o
 
     const responseText = response.choices[0]?.message?.content || '{"score": 5, "feedback": "Thank you for your answer!"}';
     console.log('🧠 Context-aware evaluation:', responseText);
-    
+
     try {
       const evaluation = JSON.parse(responseText);
       const score = Math.max(0, Math.min(10, evaluation.score || 5));
       let feedback = evaluation.feedback || "Thank you for your answer!";
-      
+
       // Additional context-based feedback refinement
       const answerLower = answer.toLowerCase();
-      
+
       // Detect if student admits they don't know
-      if (answerLower.includes("don't know") || answerLower.includes("not sure") || 
-          answerLower.includes("no idea") || answerLower.includes("i don't") ||
-          answer.trim().length < 10) {
+      if (answerLower.includes("don't know") || answerLower.includes("not sure") ||
+        answerLower.includes("no idea") || answerLower.includes("i don't") ||
+        answer.trim().length < 10) {
         feedback = getEncouragingResponse();
       }
       // Detect if student is clearly confident and knowledgeable
@@ -118,14 +118,14 @@ Please analyze this answer contextually and provide appropriate feedback based o
       else if (score < 4) {
         feedback = getSupportiveResponse();
       }
-      
+
       return {
         score,
         feedback,
       };
     } catch (parseError) {
       console.log('Using contextual fallback evaluation');
-      
+
       // Analyze answer content for fallback response
       const answerLower = answer.toLowerCase();
       if (answerLower.includes("don't know") || answer.trim().length < 10) {
@@ -147,7 +147,7 @@ Please analyze this answer contextually and provide appropriate feedback based o
     }
   } catch (error) {
     console.log('Using supportive fallback due to API error');
-    
+
     // Even in error cases, try to be contextual
     const answerLower = answer.toLowerCase();
     if (answerLower.includes("don't know") || answer.trim().length < 10) {
@@ -156,7 +156,7 @@ Please analyze this answer contextually and provide appropriate feedback based o
         feedback: getEncouragingResponse(),
       };
     }
-    
+
     return {
       score: 5,
       feedback: "Thank you for participating!",
@@ -206,20 +206,20 @@ export const textToSpeech = async (text: string): Promise<VoiceResponse | null> 
   const apiKey = import.meta.env.VITE_ELEVEN_LABS_API_KEY;
   const voiceId = import.meta.env.VITE_ELEVENLABS_VOICE_ID;
 
-  console.log('🔊 TTS Request:', { 
-    hasApiKey: !!apiKey, 
-    hasVoiceId: !!voiceId, 
-    textLength: text.length 
+  console.log('🔊 TTS Request:', {
+    hasApiKey: !!apiKey,
+    hasVoiceId: !!voiceId,
+    textLength: text.length
   });
 
   // Try ElevenLabs first if configured
   if (apiKey && voiceId) {
     try {
       console.log('🎵 Attempting ElevenLabs TTS...');
-      
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
-      
+
       const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
         method: 'POST',
         headers: {
@@ -245,16 +245,16 @@ export const textToSpeech = async (text: string): Promise<VoiceResponse | null> 
       if (response.ok) {
         const audioBlob = await response.blob();
         const audioUrl = URL.createObjectURL(audioBlob);
-        
+
         // Estimate duration based on text length and speaking rate
         const wordsCount = text.split(/\s+/).length;
         const duration = Math.max(2000, (wordsCount / 2.5) * 1000); // ~2.5 words per second
-        
+
         const result = { audioUrl, duration };
-        
+
         // Cache the result
         ttsCache.set(cacheKey, result);
-        
+
         console.log('✅ ElevenLabs TTS generated successfully');
         return result;
       } else {
@@ -290,19 +290,19 @@ const browserTextToSpeech = async (text: string, cacheKey: string): Promise<Voic
       window.speechSynthesis.cancel();
 
       const utterance = new SpeechSynthesisUtterance(text);
-      
+
       // Configure voice settings
       utterance.rate = 1.1; // Slightly faster for efficiency
       utterance.pitch = 1.0;
       utterance.volume = 0.9;
-      
+
       // Try to use a good English voice
       const voices = window.speechSynthesis.getVoices();
-      const englishVoice = voices.find(voice => 
-        voice.lang.startsWith('en') && 
+      const englishVoice = voices.find(voice =>
+        voice.lang.startsWith('en') &&
         (voice.name.includes('Google') || voice.name.includes('Microsoft') || voice.name.includes('Alex'))
       ) || voices.find(voice => voice.lang.startsWith('en'));
-      
+
       if (englishVoice) {
         utterance.voice = englishVoice;
         console.log('🎤 Using voice:', englishVoice.name);
@@ -310,7 +310,7 @@ const browserTextToSpeech = async (text: string, cacheKey: string): Promise<Voic
 
       // Create a blob URL for the audio (simulated)
       const duration = Math.max(2000, (text.split(/\s+/).length / 2.5) * 1000);
-      
+
       // For browser TTS, we create a special response that indicates browser speech
       const result: VoiceResponse = {
         audioUrl: 'browser-tts://' + encodeURIComponent(text), // Special URL format
@@ -343,7 +343,7 @@ const browserTextToSpeech = async (text: string, cacheKey: string): Promise<Voic
 
       // Start speaking
       window.speechSynthesis.speak(utterance);
-      
+
       console.log('✅ Browser TTS initiated');
       resolve(result);
 
@@ -372,26 +372,26 @@ export const preloadCommonTTS = async () => {
     "That's okay, let's continue!",
     "Honesty is appreciated!",
     "No problem, moving on!",
-    
+
     // Supportive responses for struggling students
     "That's okay, this is tricky!",
     "No worries, tough question!",
     "Good effort, next question!",
     "Nice try, moving forward!",
-    
+
     // Positive responses for good answers
     "Excellent explanation!",
     "Great understanding!",
     "Perfect answer!",
     "Outstanding knowledge!",
     "Brilliant explanation!",
-    
+
     // Partial understanding responses
     "Good start, but remember the key concept!",
     "You're on the right track!",
     "Good detailed response!",
     "Thank you for your answer!",
-    
+
     // Question transitions
     "Let's begin with your first question.",
     "Ready for the next question?",
@@ -399,7 +399,7 @@ export const preloadCommonTTS = async () => {
   ];
 
   console.log('🚀 Preloading contextual TTS responses with ElevenLabs...');
-  
+
   // Preload in parallel with timeout - only using ElevenLabs API
   const preloadPromises = contextualPhrases.map(async (phrase) => {
     try {
@@ -410,7 +410,7 @@ export const preloadCommonTTS = async () => {
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-      
+
       const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
         method: 'POST',
         headers: {
@@ -436,13 +436,13 @@ export const preloadCommonTTS = async () => {
       if (response.ok) {
         const audioBlob = await response.blob();
         const audioUrl = URL.createObjectURL(audioBlob);
-        
+
         const wordsCount = phrase.split(/\s+/).length;
         const duration = Math.max(2000, (wordsCount / 2.5) * 1000);
-        
+
         const result = { audioUrl, duration };
         ttsCache.set(cacheKey, result);
-        
+
         console.log('✅ Preloaded contextual phrase:', phrase.substring(0, 30) + '...');
       }
     } catch (error) {
@@ -450,7 +450,78 @@ export const preloadCommonTTS = async () => {
       console.log('⚠️ Preload failed for phrase, will generate on demand');
     }
   });
-  
+
   await Promise.allSettled(preloadPromises);
   console.log('✅ Contextual TTS preloading complete');
+};
+
+// Get Data from resume pdf
+export const getDataFromPdf = async (pdfText: string) => {
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          "role": "system",
+          "content": "You are a helpful assistant that extracts structured data from resumes. Return the result only in pure JSON format without any explanation."
+        },
+        {
+          "role": "user",
+          "content": `
+Extract the following information from the resume text:
+- Full Name
+- Email Address
+- Phone Number
+- Experience Level (choose only one from: "entry", "junior", "mid", "senior", "lead")
+- Current or Last Designation
+- Location
+- Technical or Domain Skills
+
+Resume Text:
+"""
+${pdfText}
+"""
+Respond only in this JSON format:
+{
+  "job_data": {
+    "name": "",
+    "email": "",
+    "phone": "",
+    "experienceLevel": "",
+    "designation": "",
+    "location": "",
+    "skills": []
+  }
+}
+`
+        }
+      ],
+      temperature: 0.3,
+      response_format: {
+        type: "json_object",
+      },
+    });
+    let responseText = response.choices[0]?.message?.content ?? "";
+    const evaluation = JSON.parse(responseText);
+    let data: {
+      name: string;
+      email: string;
+      phone: string;
+      experienceLevel: string;
+      designation: string;
+      location: string;
+      skills: string[]
+    } | undefined = evaluation?.job_data ?? {
+      name: "",
+      email: "",
+      phone: "",
+      experienceLevel: "",
+      designation: "",
+      location: "",
+      skills: []
+    }
+    return data;
+  } catch (error) {
+    console.log("error", error);
+  }
 };
