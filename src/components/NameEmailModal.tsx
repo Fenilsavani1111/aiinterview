@@ -3,6 +3,11 @@ import { useFormik } from "formik";
 import * as Yup from "yup";
 import { Plus, Trash2, Upload } from "lucide-react";
 import axios from "axios";
+import * as pdfjsLib from "pdfjs-dist";
+import pdfjsWorker from "pdfjs-dist/build/pdf.worker.min?url";
+import { getDataFromPdf } from "../services/apiService";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 interface Props {
   isOpen: boolean;
@@ -78,6 +83,40 @@ const NameEmailModal: React.FC<Props> = ({
   const uploadResumeFile = async (file: any) => {
     try {
       setIsResumeUploading(true);
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({
+        data: arrayBuffer,
+      }).promise;
+      let fullText = "";
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        fullText +=
+          content.items
+            .map((item) => ("str" in item ? item.str : ""))
+            .join(" ") + "\n";
+      }
+      let jobData:
+        | {
+            name: string;
+            email: string;
+            phone: string;
+            experienceLevel: string;
+            designation: string;
+            location: string;
+            skills: string[];
+          }
+        | undefined = await getDataFromPdf(fullText);
+      setValues({
+        ...values,
+        name: jobData?.name ?? "",
+        email: jobData?.email ?? "",
+        mobile: jobData?.phone ?? "",
+        designation: jobData?.designation ?? "",
+        experienceLevel: jobData?.experienceLevel ?? "",
+        location: jobData?.location ?? "",
+        skills: jobData?.skills ?? [],
+      });
       const formData = new FormData();
       formData.append("file", file);
       const res = await axios.post(
@@ -128,7 +167,7 @@ const NameEmailModal: React.FC<Props> = ({
               onChange={handleChange}
             />
             <div className="lg:col-span-2">
-              <div className="">
+              <div className="w-max">
                 <label
                   htmlFor="file-upload"
                   className="flex items-center space-x-2 cursor-pointer text-blue-600 hover:text-blue-700 text-sm"
