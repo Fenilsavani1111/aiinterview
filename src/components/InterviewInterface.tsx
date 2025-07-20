@@ -190,7 +190,7 @@ const InterviewInterface: React.FC = ({ physicsQuestions, fetchQueData }) => {
       }
 
       const question = physicsQuestions[currentSession.currentQuestionIndex];
-      setCurrentQuestion(question);
+      setCurrentQuestion(question?.question || question);
       setQuestionStartTime(Date.now());
       setWaitingForAnswer(false);
       setAudioPlaying(false);
@@ -569,7 +569,7 @@ const InterviewInterface: React.FC = ({ physicsQuestions, fetchQueData }) => {
             </div>
           </div>
           <p className="text-gray-600 text-lg max-w-3xl mx-auto">
-            🎤 <strong>Smart Voice Detection!</strong> AI physics interview that
+            🎤 <strong>Smart Voice Detection!</strong> AI interview that
             understands when you're speaking. Answer questions naturally at your
             own pace.
           </p>
@@ -661,7 +661,7 @@ const InterviewInterface: React.FC = ({ physicsQuestions, fetchQueData }) => {
                   disabled={!isSupported || !!speechError || !microphoneReady}
                   className="w-full px-8 py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold text-lg rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 >
-                  🎤 Start Smart Physics Interview
+                  🎤 Start Smart Interview
                 </button>
               </div>
             </div>
