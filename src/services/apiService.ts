@@ -456,7 +456,7 @@ export const preloadCommonTTS = async () => {
 };
 
 // Get Data from resume pdf
-export const getDataFromPdf = async (pdfText: string) => {
+export const getDataFromResumePdf = async (pdfText: string) => {
   try {
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",

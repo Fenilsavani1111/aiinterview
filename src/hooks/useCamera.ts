@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { useState, useRef, useCallback, useEffect } from 'react';
 
 interface CameraHook {
@@ -8,6 +9,8 @@ interface CameraHook {
   startRecording: () => Promise<void>;
   stopRecording: () => void;
   error: string | null;
+  recordingLink: string | null;
+  isLoading: boolean;
 }
 
 export const useCamera = (): CameraHook => {
@@ -17,6 +20,8 @@ export const useCamera = (): CameraHook => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+  const [recordingLink, setRecordingLink] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Keep reference to stream for cleanup
   useEffect(() => {
@@ -41,7 +46,7 @@ export const useCamera = (): CameraHook => {
     try {
       setError(null);
       console.log('Starting camera...');
-      
+
       // Stop existing stream if any
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
@@ -71,7 +76,7 @@ export const useCamera = (): CameraHook => {
 
       console.log('Requesting media with constraints:', constraints);
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-      
+
       console.log('Media stream obtained:', {
         videoTracks: mediaStream.getVideoTracks().length,
         audioTracks: mediaStream.getAudioTracks().length,
@@ -85,11 +90,11 @@ export const useCamera = (): CameraHook => {
           console.log('Video track ended');
           setError('Camera disconnected. Please refresh and try again.');
         });
-        
+
         track.addEventListener('mute', () => {
           console.log('Video track muted');
         });
-        
+
         track.addEventListener('unmute', () => {
           console.log('Video track unmuted');
         });
@@ -106,11 +111,11 @@ export const useCamera = (): CameraHook => {
       setStream(mediaStream);
       streamRef.current = mediaStream;
       console.log('Camera started successfully');
-      
+
     } catch (err: any) {
       console.error('Camera access error:', err);
       let errorMessage = 'Failed to access camera';
-      
+
       if (err.name === 'NotAllowedError') {
         errorMessage = 'Camera access denied. Please allow camera permissions and refresh the page.';
       } else if (err.name === 'NotFoundError') {
@@ -119,7 +124,7 @@ export const useCamera = (): CameraHook => {
         errorMessage = 'Camera is already in use by another application.';
       } else if (err.name === 'OverconstrainedError') {
         errorMessage = 'Camera constraints not supported. Trying with basic settings...';
-        
+
         // Try with basic constraints
         try {
           console.log('Trying with basic constraints...');
@@ -138,14 +143,14 @@ export const useCamera = (): CameraHook => {
       } else if (err.message) {
         errorMessage = err.message;
       }
-      
+
       setError(errorMessage);
     }
   }, []);
 
   const stopCamera = useCallback(() => {
     console.log('Stopping camera...');
-    
+
     // Stop recording first
     if (mediaRecorderRef.current && isRecording) {
       try {
@@ -154,7 +159,7 @@ export const useCamera = (): CameraHook => {
         console.error('Error stopping recorder:', e);
       }
     }
-    
+
     // Stop all tracks
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => {
@@ -163,7 +168,7 @@ export const useCamera = (): CameraHook => {
       });
       streamRef.current = null;
     }
-    
+
     setStream(null);
     setIsRecording(false);
     setError(null);
@@ -172,7 +177,7 @@ export const useCamera = (): CameraHook => {
 
   const startRecording = useCallback(async () => {
     console.log('Starting recording...');
-    
+
     if (!streamRef.current || !streamRef.current.active) {
       console.error('No active stream available for recording');
       setError('No camera stream available for recording');
@@ -182,7 +187,7 @@ export const useCamera = (): CameraHook => {
     // Check if stream has both video and audio tracks
     const videoTracks = streamRef.current.getVideoTracks();
     const audioTracks = streamRef.current.getAudioTracks();
-    
+
     console.log('Stream tracks for recording:', {
       video: videoTracks.length,
       audio: audioTracks.length,
@@ -202,7 +207,7 @@ export const useCamera = (): CameraHook => {
       }
 
       recordedChunksRef.current = [];
-      
+
       // Check MediaRecorder support
       if (!window.MediaRecorder) {
         throw new Error('Recording not supported in this browser');
@@ -230,7 +235,7 @@ export const useCamera = (): CameraHook => {
         videoBitsPerSecond: 1000000, // 1 Mbps
         audioBitsPerSecond: 128000   // 128 kbps
       };
-      
+
       if (selectedMimeType) {
         options.mimeType = selectedMimeType;
       }
@@ -247,19 +252,22 @@ export const useCamera = (): CameraHook => {
 
       mediaRecorder.onstop = () => {
         console.log('Recording stopped');
+        setIsLoading(true);
         const blob = new Blob(recordedChunksRef.current, {
           type: selectedMimeType || 'video/webm'
         });
-        
+
         console.log('Recording completed, blob size:', blob.size);
-        
+
         // Create download URL for the recording
         const url = URL.createObjectURL(blob);
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        
+
         // Store recording info (could be used for download later)
         console.log('Recording available at:', url);
-        
+
+        // upload recording to cloud
+        uploadinterviewvideo(blob)
         // Optional: Auto-download the recording
         // const a = document.createElement('a');
         // a.href = url;
@@ -280,11 +288,11 @@ export const useCamera = (): CameraHook => {
       };
 
       mediaRecorderRef.current = mediaRecorder;
-      
+
       // Start recording with 1-second chunks
       mediaRecorder.start(1000);
       console.log('MediaRecorder.start() called');
-      
+
     } catch (err: any) {
       console.error('Recording start error:', err);
       const errorMessage = err.message || 'Failed to start recording';
@@ -292,6 +300,29 @@ export const useCamera = (): CameraHook => {
       setIsRecording(false);
     }
   }, []);
+
+  const uploadinterviewvideo = async (file: any) => {
+    try {
+      setIsLoading(true)
+      const formData = new FormData();
+      formData.append("video", file);
+      const res = await axios.post(
+        `${import.meta.env.VITE_AIINTERVIEW_API_KEY}/jobposts/upload-interview-video`,
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
+      if (res.data) {
+        if (res.data?.file_url?.length > 0)
+          setRecordingLink(res?.data?.file_url);
+        setIsLoading(false)
+      }
+    } catch (error) {
+      console.error("Error uploading resume file:", error);
+      setIsLoading(false)
+    }
+  }
 
   const stopRecording = useCallback(() => {
     console.log('Stopping recording...');
@@ -313,6 +344,8 @@ export const useCamera = (): CameraHook => {
     stopCamera,
     startRecording,
     stopRecording,
-    error
+    error,
+    recordingLink,
+    isLoading,
   };
 };

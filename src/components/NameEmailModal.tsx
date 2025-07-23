@@ -5,7 +5,7 @@ import { Plus, Trash2, Upload } from "lucide-react";
 import axios from "axios";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfjsWorker from "pdfjs-dist/build/pdf.worker.min?url";
-import { getDataFromPdf } from "../services/apiService";
+import { getDataFromResumePdf } from "../services/apiService";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
@@ -106,16 +106,37 @@ const NameEmailModal: React.FC<Props> = ({
             location: string;
             skills: string[];
           }
-        | undefined = await getDataFromPdf(fullText);
+        | undefined = await getDataFromResumePdf(fullText);
+      let newskills: string[] = [];
+      if (values.skills?.length === 0) {
+        newskills = jobData?.skills ?? [];
+      } else if (values.skills?.length === 1) {
+        newskills =
+          values.skills?.[0]?.length > 0
+            ? [...values.skills]
+            : jobData?.skills ?? [];
+      } else if (values.skills?.length >= 2) {
+        newskills = jobData?.skills ?? [];
+      }
       setValues({
         ...values,
-        name: jobData?.name ?? "",
-        email: jobData?.email ?? "",
-        mobile: jobData?.phone ?? "",
-        designation: jobData?.designation ?? "",
-        experienceLevel: jobData?.experienceLevel ?? "",
-        location: jobData?.location ?? "",
-        skills: jobData?.skills ?? [],
+        name: values.name?.length > 0 ? values.name : jobData?.name ?? "",
+        email: values.email?.length > 0 ? values.email : jobData?.email ?? "",
+        mobile:
+          values.mobile?.length > 0 ? values.mobile : jobData?.phone ?? "",
+        designation:
+          values.designation?.length > 0
+            ? values.designation
+            : jobData?.designation ?? "",
+        experienceLevel:
+          values.experienceLevel?.length > 0
+            ? values.experienceLevel
+            : jobData?.experienceLevel ?? "",
+        location:
+          values.location?.length > 0
+            ? values.location
+            : jobData?.location ?? "",
+        skills: newskills,
       });
       const formData = new FormData();
       formData.append("file", file);
