@@ -9,6 +9,7 @@ const App: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [fetchQueData, setFetchQueData] = useState(false);
   const [interviewQuestions, setInterviewQuestions] = useState<any[]>([]);
+  const [candidateId, setCandidateId] = useState<string | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<string>("");
   const [isModalLoading, setIsModalLoading] = useState(false);
 
@@ -57,6 +58,7 @@ const App: React.FC = () => {
         if (response.data.questions && Array.isArray(response.data.questions)) {
           setInterviewQuestions(response.data.questions);
           setCurrentQuestion(response.data.questions[0]);
+          setCandidateId(response.data.candidateId);
         }
         setIsModalLoading(false);
       }
@@ -82,6 +84,7 @@ const App: React.FC = () => {
           physicsQuestions={interviewQuestions}
           fetchQueData={fetchQueData}
           title="Physics Interview AI"
+          candidateId={candidateId}
         />
       )}
     </div>

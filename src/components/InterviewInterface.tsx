@@ -9,6 +9,7 @@ import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
 import { useAudioPlayer } from "../hooks/useAudioPlayer";
 import { useCamera } from "../hooks/useCamera";
 import { processPhysicsQuestion, textToSpeech } from "../services/apiService";
+import axios from "axios";
 // import { physicsQuestions } from '../data/physicsQuestions';
 
 interface InterviewSession {
@@ -19,6 +20,7 @@ interface InterviewSession {
   currentQuestionIndex: number;
   score: number;
   status: "waiting" | "active" | "completed";
+  recordingLink: string | null;
 }
 
 interface QuestionResponse {
@@ -30,7 +32,11 @@ interface QuestionResponse {
   responseTime: number;
 }
 
-const InterviewInterface: React.FC = ({ physicsQuestions, fetchQueData }) => {
+const InterviewInterface: React.FC = ({
+  physicsQuestions,
+  fetchQueData,
+  candidateId,
+}) => {
   const [session, setSession] = useState<InterviewSession | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -71,8 +77,9 @@ const InterviewInterface: React.FC = ({ physicsQuestions, fetchQueData }) => {
     startRecording,
     stopRecording,
     error: cameraError,
+    recordingLink,
+    isLoading,
   } = useCamera();
-
   // Test microphone access on component mount
   useEffect(() => {
     const testMicrophone = async () => {
@@ -425,6 +432,39 @@ const InterviewInterface: React.FC = ({ physicsQuestions, fetchQueData }) => {
     transcript,
   ]);
 
+  // update candidate interview
+  const updateCandidateDetails = async (videolink: string | null) => {
+    try {
+      // setIsModalLoading(true);
+      const response = await axios.post(
+        `${
+          import.meta.env.VITE_AIINTERVIEW_API_KEY
+        }/jobposts/update-candidate-byid`,
+        {
+          candidateId: candidateId,
+          data: {
+            interviewVideoLink: videolink,
+            status: "completed",
+            interviewDate: new Date(),
+            hasRecording: true,
+          },
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      if (response.data) {
+      }
+      // You can handle the response here (e.g., save data, show a message, etc.)
+      console.log("update candidate details response:", response.data);
+    } catch (error: any) {
+      // Handle error (show error message, etc.)
+      console.error("Error joining job link:", error);
+    }
+  };
+
   // End interview
   const endInterview = useCallback(() => {
     console.log("🏁 Ending interview");
@@ -440,6 +480,7 @@ const InterviewInterface: React.FC = ({ physicsQuestions, fetchQueData }) => {
         ...session,
         endTime: new Date(),
         status: "completed",
+        recordingLink: recordingLink ?? "",
       });
     }
 
@@ -527,19 +568,26 @@ const InterviewInterface: React.FC = ({ physicsQuestions, fetchQueData }) => {
     resetTranscript();
   }, [stopCamera, resetTranscript]);
 
+  // update details when video uploaded to cloud
+  useEffect(() => {
+    if (!isLoading && recordingLink && !isRecording) {
+      updateCandidateDetails(recordingLink);
+    }
+  }, [isLoading, recordingLink]);
+
   // Debug info
   useEffect(() => {
-    console.log("🔧 System Status:", {
-      speechSupported: isSupported,
-      microphoneReady,
-      isListening,
-      waitingForAnswer,
-      isProcessing,
-      audioPlaying,
-      voiceActivity,
-      isSpeaking,
-      transcriptLength: transcript.length,
-    });
+    // console.log("🔧 System Status:", {
+    //   speechSupported: isSupported,
+    //   microphoneReady,
+    //   isListening,
+    //   waitingForAnswer,
+    //   isProcessing,
+    //   audioPlaying,
+    //   voiceActivity,
+    //   isSpeaking,
+    //   transcriptLength: transcript.length,
+    // });
   }, [
     isSupported,
     microphoneReady,
@@ -668,7 +716,11 @@ const InterviewInterface: React.FC = ({ physicsQuestions, fetchQueData }) => {
           </div>
         ) : session?.status === "completed" ? (
           /* Interview Summary */
-          <InterviewSummary session={session} onRestart={resetInterview} />
+          <InterviewSummary
+            session={session}
+            onRestart={resetInterview}
+            isLoading={isLoading}
+          />
         ) : (
           /* Active Interview */
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
