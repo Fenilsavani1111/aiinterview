@@ -27,6 +27,20 @@ interface InterviewSummaryProps {
   isLoading?: boolean;
 }
 
+export const getGrade = (score: number) => {
+  if (score >= 9)
+    return { grade: "A+", color: "text-green-600", bg: "bg-green-50" };
+  if (score >= 8)
+    return { grade: "A", color: "text-green-600", bg: "bg-green-50" };
+  if (score >= 7)
+    return { grade: "B+", color: "text-blue-600", bg: "bg-blue-50" };
+  if (score >= 6)
+    return { grade: "B", color: "text-blue-600", bg: "bg-blue-50" };
+  if (score >= 5)
+    return { grade: "C", color: "text-yellow-600", bg: "bg-yellow-50" };
+  return { grade: "D", color: "text-red-600", bg: "bg-red-50" };
+};
+
 export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
   session,
   onRestart,
@@ -53,20 +67,6 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
             session.questions.length
         )
       : 0;
-
-  const getGrade = (score: number) => {
-    if (score >= 9)
-      return { grade: "A+", color: "text-green-600", bg: "bg-green-50" };
-    if (score >= 8)
-      return { grade: "A", color: "text-green-600", bg: "bg-green-50" };
-    if (score >= 7)
-      return { grade: "B+", color: "text-blue-600", bg: "bg-blue-50" };
-    if (score >= 6)
-      return { grade: "B", color: "text-blue-600", bg: "bg-blue-50" };
-    if (score >= 5)
-      return { grade: "C", color: "text-yellow-600", bg: "bg-yellow-50" };
-    return { grade: "D", color: "text-red-600", bg: "bg-red-50" };
-  };
 
   const gradeInfo = getGrade(averageScore);
 
