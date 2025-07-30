@@ -4,7 +4,7 @@ import { CameraView } from "./CameraView";
 import { InterviewControls } from "./InterviewControls";
 import { QuestionDisplay } from "./QuestionDisplay";
 import { InterviewProgress } from "./InterviewProgress";
-import { InterviewSummary } from "./InterviewSummary";
+import { getGrade, InterviewSummary } from "./InterviewSummary";
 import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
 import { useAudioPlayer } from "../hooks/useAudioPlayer";
 import { useCamera } from "../hooks/useCamera";
@@ -28,7 +28,7 @@ interface QuestionResponse {
   userAnswer: string;
   aiEvaluation: string;
   score: number;
-  timestamp: Date;
+  timestamp?: Date;
   responseTime: number;
 }
 
@@ -154,6 +154,7 @@ const InterviewInterface: React.FC = ({
         currentQuestionIndex: 0,
         score: 0,
         status: "active",
+        recordingLink: null,
       };
 
       setSession(newSession);
@@ -435,6 +436,56 @@ const InterviewInterface: React.FC = ({
   // update candidate interview
   const updateCandidateDetails = async (videolink: string | null) => {
     try {
+      const totalTime = session?.endTime
+        ? Math.round(
+            (session.endTime.getTime() - session.startTime.getTime()) /
+              1000 /
+              60
+          )
+        : 0;
+
+      let averageScore = 0;
+      let totalScore = 0;
+      let averageResponseTime = 0;
+      if (session?.questions) {
+        averageScore =
+          session?.questions.length > 0
+            ? Math.round(
+                session?.questions.reduce((sum, q) => sum + q.score, 0) /
+                  session?.questions.length
+              )
+            : 0;
+        totalScore =
+          session?.questions.length > 0
+            ? Math.round(
+                session?.questions.reduce((sum, q) => sum + q.score, 0)
+              )
+            : 0;
+
+        averageResponseTime =
+          session?.questions.length > 0
+            ? Math.round(
+                session?.questions.reduce((sum, q) => sum + q.responseTime, 0) /
+                  session?.questions.length
+              )
+            : 0;
+      }
+      const gradeInfo = getGrade(averageScore);
+      let newQuestions: any[] = [];
+      physicsQuestions.map((ques: any) => {
+        let question = { ...ques };
+        let findquesResp = session?.questions?.find(
+          (item) => item.question === ques?.question
+        );
+        newQuestions.push({
+          questionId: question?.id,
+          studentId: candidateId,
+          answer: findquesResp?.userAnswer ?? "",
+          aiEvaluation: findquesResp?.aiEvaluation ?? "",
+          score: findquesResp?.score ?? 0,
+          responseTime: findquesResp?.responseTime ?? 0,
+        });
+      });
       // setIsModalLoading(true);
       const response = await axios.post(
         `${
@@ -446,7 +497,14 @@ const InterviewInterface: React.FC = ({
             interviewVideoLink: videolink,
             status: "completed",
             interviewDate: new Date(),
-            hasRecording: true,
+            hasRecording: videolink ? true : false,
+            questions: newQuestions,
+            attemptedQuestions: session?.questions?.length ?? 0,
+            overallScore: averageScore,
+            totalScore: totalScore,
+            grade: gradeInfo?.grade,
+            duration: totalTime,
+            averageResponseTime: averageResponseTime,
           },
         },
         {
@@ -570,7 +628,7 @@ const InterviewInterface: React.FC = ({
 
   // update details when video uploaded to cloud
   useEffect(() => {
-    if (!isLoading && recordingLink && !isRecording) {
+    if (!isLoading && !isRecording) {
       updateCandidateDetails(recordingLink);
     }
   }, [isLoading, recordingLink]);
