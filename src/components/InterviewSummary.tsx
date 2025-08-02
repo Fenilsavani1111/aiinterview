@@ -1,25 +1,7 @@
 import React from "react";
 import { Award, Clock, BarChart3, RefreshCw } from "lucide-react";
 import { useCamera } from "../hooks/useCamera";
-
-interface InterviewSession {
-  id: string;
-  startTime: Date;
-  endTime?: Date;
-  questions: QuestionResponse[];
-  currentQuestionIndex: number;
-  score: number;
-  status: "waiting" | "active" | "completed";
-}
-
-interface QuestionResponse {
-  question: string;
-  userAnswer: string;
-  aiEvaluation: string;
-  score: number;
-  timestamp: Date;
-  responseTime: number;
-}
+import { InterviewSession } from "./InterviewInterface";
 
 interface InterviewSummaryProps {
   session: InterviewSession;
