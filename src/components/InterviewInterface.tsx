@@ -12,7 +12,7 @@ import { processPhysicsQuestion, textToSpeech } from "../services/apiService";
 import axios from "axios";
 // import { physicsQuestions } from '../data/physicsQuestions';
 
-interface InterviewSession {
+export interface InterviewSession {
   id: string;
   startTime: Date;
   endTime?: Date;
@@ -20,7 +20,6 @@ interface InterviewSession {
   currentQuestionIndex: number;
   score: number;
   status: "waiting" | "active" | "completed";
-  recordingLink: string | null;
 }
 
 interface QuestionResponse {
@@ -32,7 +31,29 @@ interface QuestionResponse {
   responseTime: number;
 }
 
-const InterviewInterface: React.FC = ({
+interface InterviewQuestion {
+  id: string;
+  question: string;
+  type: "behavioral" | "technical" | "general" | "situational";
+  expectedDuration: number; // in seconds
+  difficulty: "easy" | "medium" | "hard";
+  category: string;
+  suggestedAnswers?: string[];
+  evaluationCriteria?: string[];
+  isRequired: boolean;
+  order: number;
+}
+
+interface InterviewInterfaceProps {
+  physicsQuestions: InterviewQuestion[];
+  fetchQueData: {
+    jobTitle?: string;
+  } | null;
+  title: string;
+  candidateId?: string | null;
+}
+
+const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
   physicsQuestions,
   fetchQueData,
   candidateId,
@@ -45,6 +66,7 @@ const InterviewInterface: React.FC = ({
   const [waitingForAnswer, setWaitingForAnswer] = useState(false);
   const [microphoneReady, setMicrophoneReady] = useState(false);
   const [audioPlaying, setAudioPlaying] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const questionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const interviewTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -77,8 +99,6 @@ const InterviewInterface: React.FC = ({
     startRecording,
     stopRecording,
     error: cameraError,
-    recordingLink,
-    isLoading,
   } = useCamera();
   // Test microphone access on component mount
   useEffect(() => {
@@ -102,8 +122,14 @@ const InterviewInterface: React.FC = ({
       }
     };
 
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    if (
+      typeof navigator !== "undefined" &&
+      navigator.mediaDevices &&
+      typeof navigator.mediaDevices.getUserMedia === "function"
+    ) {
       testMicrophone();
+    } else {
+      console.warn("getUserMedia is not supported in this environment.");
     }
   }, []);
 
@@ -154,7 +180,6 @@ const InterviewInterface: React.FC = ({
         currentQuestionIndex: 0,
         score: 0,
         status: "active",
-        recordingLink: null,
       };
 
       setSession(newSession);
@@ -198,7 +223,7 @@ const InterviewInterface: React.FC = ({
       }
 
       const question = physicsQuestions[currentSession.currentQuestionIndex];
-      setCurrentQuestion(question?.question || question);
+      setCurrentQuestion(question?.question);
       setQuestionStartTime(Date.now());
       setWaitingForAnswer(false);
       setAudioPlaying(false);
@@ -433,9 +458,36 @@ const InterviewInterface: React.FC = ({
     transcript,
   ]);
 
+  // upload recording to cloud
+  const uploadinterviewvideo = async (file: any) => {
+    try {
+      setIsLoading(true);
+      const formData = new FormData();
+      formData.append("video", file);
+      const res = await axios.post(
+        `${
+          import.meta.env.VITE_AIINTERVIEW_API_KEY
+        }/jobposts/upload-interview-video`,
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
+      if (res.data) {
+        updateCandidateDetails(
+          res.data?.file_url?.length > 0 ? res?.data?.file_url : null
+        );
+      }
+    } catch (error) {
+      console.error("Error uploading resume file:", error);
+      setIsLoading(false);
+    }
+  };
+
   // update candidate interview
   const updateCandidateDetails = async (videolink: string | null) => {
     try {
+      setIsLoading(true);
       const totalTime = session?.endTime
         ? Math.round(
             (session.endTime.getTime() - session.startTime.getTime()) /
@@ -494,7 +546,7 @@ const InterviewInterface: React.FC = ({
         {
           candidateId: candidateId,
           data: {
-            interviewVideoLink: videolink,
+            interviewVideoLink: videolink ?? "",
             status: "completed",
             interviewDate: new Date(),
             hasRecording: videolink ? true : false,
@@ -514,31 +566,37 @@ const InterviewInterface: React.FC = ({
         }
       );
       if (response.data) {
+        // You can handle the response here (e.g., save data, show a message, etc.)
+        setIsLoading(false);
+        console.log("update candidate details response:", response.data);
       }
-      // You can handle the response here (e.g., save data, show a message, etc.)
-      console.log("update candidate details response:", response.data);
     } catch (error: any) {
+      setIsLoading(false);
       // Handle error (show error message, etc.)
       console.error("Error joining job link:", error);
     }
   };
 
   // End interview
-  const endInterview = useCallback(() => {
+  const endInterview = useCallback(async () => {
     console.log("🏁 Ending interview");
     setInterviewStarted(false);
     setWaitingForAnswer(false);
     setAudioPlaying(false);
     stopListening();
     stopAudio();
-    stopRecording();
-
+    let data = await stopRecording();
+    if (data?.blob) {
+      uploadinterviewvideo(data.blob);
+    } else {
+      updateCandidateDetails(null);
+    }
+    setCurrentQuestion("");
     if (session) {
       setSession({
         ...session,
         endTime: new Date(),
         status: "completed",
-        recordingLink: recordingLink ?? "",
       });
     }
 
@@ -625,13 +683,6 @@ const InterviewInterface: React.FC = ({
     stopCamera();
     resetTranscript();
   }, [stopCamera, resetTranscript]);
-
-  // update details when video uploaded to cloud
-  useEffect(() => {
-    if (!isLoading && !isRecording) {
-      updateCandidateDetails(recordingLink);
-    }
-  }, [isLoading, recordingLink]);
 
   // Debug info
   useEffect(() => {
