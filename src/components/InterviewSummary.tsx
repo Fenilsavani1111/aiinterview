@@ -63,7 +63,7 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
             Interview Complete!
           </h2>
           <p className="text-gray-600 text-lg">
-            Great job completing your physics interview. Here's your performance
+            Great job completing your interview. Here's your performance
             summary:
           </p>
         </div>
@@ -72,7 +72,7 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
         ) : (
           <>
             {/* Overall Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            {/* <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
               <div className={`p-6 rounded-2xl text-center ${gradeInfo.bg}`}>
                 <Award className={`w-8 h-8 mx-auto mb-3 ${gradeInfo.color}`} />
                 <div className={`text-3xl font-bold ${gradeInfo.color}`}>
@@ -104,10 +104,10 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                 </div>
                 <div className="text-sm text-gray-600">Avg Response</div>
               </div>
-            </div>
+            </div> */}
 
             {/* Detailed Results */}
-            <div className="mb-8">
+            {/* <div className="mb-8">
               <h3 className="text-xl font-semibold text-gray-800 mb-4">
                 Question-by-Question Results
               </h3>
@@ -161,10 +161,10 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                   </div>
                 ))}
               </div>
-            </div>
+            </div> */}
 
             {/* Actions */}
-            <div className="text-center">
+            {/* <div className="text-center">
               <button
                 onClick={onRestart}
                 className="px-8 py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold text-lg rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300"
@@ -174,7 +174,7 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                   Take Another Interview
                 </div>
               </button>
-            </div>
+            </div> */}
           </>
         )}
       </div>

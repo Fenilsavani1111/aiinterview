@@ -166,6 +166,7 @@ const App: React.FC = () => {
       if (response.data) {
         setShowModal(false);
         setFetchQueData(response.data);
+        document.title = response.data?.jobTitle ?? "AI Interview"; // Set page title
         if (response.data.questions && Array.isArray(response.data.questions)) {
           setInterviewQuestions(response.data.questions);
           setCurrentQuestion(response.data.questions[0]);
@@ -194,7 +195,6 @@ const App: React.FC = () => {
         <InterviewInterface
           physicsQuestions={interviewQuestions}
           fetchQueData={fetchQueData}
-          title="Physics Interview AI"
           candidateId={candidateId}
         />
       )}

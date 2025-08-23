@@ -8,9 +8,12 @@ import { getGrade, InterviewSummary } from "./InterviewSummary";
 import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
 import { useAudioPlayer } from "../hooks/useAudioPlayer";
 import { useCamera } from "../hooks/useCamera";
-import { processPhysicsQuestion, textToSpeech } from "../services/apiService";
+import {
+  getInterviewOverviewWithAI,
+  processPhysicsQuestion,
+  textToSpeech,
+} from "../services/apiService";
 import axios from "axios";
-// import { physicsQuestions } from '../data/physicsQuestions';
 
 export interface InterviewSession {
   id: string;
@@ -22,7 +25,7 @@ export interface InterviewSession {
   status: "waiting" | "active" | "completed";
 }
 
-interface QuestionResponse {
+export interface QuestionResponse {
   question: string;
   userAnswer: string;
   aiEvaluation: string;
@@ -31,7 +34,7 @@ interface QuestionResponse {
   responseTime: number;
 }
 
-interface InterviewQuestion {
+export interface InterviewQuestion {
   id: string;
   question: string;
   type: "behavioral" | "technical" | "general" | "situational";
@@ -49,7 +52,6 @@ interface InterviewInterfaceProps {
   fetchQueData: {
     jobTitle?: string;
   } | null;
-  title: string;
   candidateId?: string | null;
 }
 
@@ -339,7 +341,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
           question: currentQuestion,
           userAnswer: trimmedAnswer,
           aiEvaluation: evaluation.feedback,
-          score: evaluation.score,
+          score: evaluation.score ?? 0,
           timestamp: new Date(),
           responseTime: responseTime / 1000,
         };
@@ -459,7 +461,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
   ]);
 
   // upload recording to cloud
-  const uploadinterviewvideo = async (file: any) => {
+  const uploadinterviewvideo = async (file: any, interviewoverview: any) => {
     try {
       setIsLoading(true);
       const formData = new FormData();
@@ -475,7 +477,8 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
       );
       if (res.data) {
         updateCandidateDetails(
-          res.data?.file_url?.length > 0 ? res?.data?.file_url : null
+          res.data?.file_url?.length > 0 ? res?.data?.file_url : null,
+          interviewoverview
         );
       }
     } catch (error) {
@@ -485,7 +488,10 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
   };
 
   // update candidate interview
-  const updateCandidateDetails = async (videolink: string | null) => {
+  const updateCandidateDetails = async (
+    videolink: string | null,
+    interviewoverview: any
+  ) => {
     try {
       setIsLoading(true);
       const totalTime = session?.endTime
@@ -586,12 +592,20 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
     stopListening();
     stopAudio();
     let data = await stopRecording();
-    if (data?.blob) {
-      uploadinterviewvideo(data.blob);
-    } else {
-      updateCandidateDetails(null);
-    }
+    console.log("data", data);
     setCurrentQuestion("");
+    if (session?.questions && session?.questions?.length > 0) {
+      let interviewoverview = await getInterviewOverviewWithAI(
+        physicsQuestions,
+        session?.questions ?? []
+      );
+      console.log("interviewoverview", interviewoverview);
+      if (data?.blob) {
+        uploadinterviewvideo(data.blob, { ...interviewoverview });
+      } else {
+        updateCandidateDetails(null, { ...interviewoverview });
+      }
+    }
     if (session) {
       setSession({
         ...session,
@@ -746,8 +760,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
                 </h2>
                 <p className="text-gray-600 mb-6">
                   🎤 <strong>Intelligent Voice Detection!</strong> The system
-                  understands when you're speaking. Answer{" "}
-                  {physicsQuestions.length} questions naturally.
+                  understands when you're speaking. Answer questions naturally.
                   <br />
                   <br />
                   <strong>Speak at your own pace - no rushing needed!</strong>
