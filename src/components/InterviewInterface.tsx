@@ -151,6 +151,13 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
       return;
     }
 
+    if (cameraError != null) {
+      alert(
+        "Camera is not ready. Please allow camera access and refresh the page."
+      );
+      return;
+    }
+
     try {
       console.log("🚀 Starting interview...");
 
@@ -586,13 +593,13 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
   // End interview
   const endInterview = useCallback(async () => {
     console.log("🏁 Ending interview");
+    setIsLoading(true);
     setInterviewStarted(false);
     setWaitingForAnswer(false);
     setAudioPlaying(false);
     stopListening();
     stopAudio();
     let data = await stopRecording();
-    console.log("data", data);
     setCurrentQuestion("");
     if (session?.questions && session?.questions?.length > 0) {
       let interviewoverview = await getInterviewOverviewWithAI(
@@ -613,6 +620,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         status: "completed",
       });
     }
+    setIsLoading(false);
 
     // Clear all timeouts
     [questionTimeoutRef, interviewTimeoutRef, processingTimeoutRef].forEach(
@@ -746,7 +754,18 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
           </p>
         </div>
 
-        {!interviewStarted && !session?.status ? (
+        {isLoading ? (
+          <div className="max-w-2xl mx-auto">
+            <div className="bg-white/70 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 p-8">
+              <div className="flex flex-col justify-center items-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <span className="mt-3 text-gray-600">
+                  Please wait do not refresh page...
+                </span>
+              </div>
+            </div>
+          </div>
+        ) : !interviewStarted && !session?.status ? (
           /* Pre-Interview Setup */
           <div className="max-w-2xl mx-auto">
             <div className="bg-white/70 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 p-8">
@@ -828,7 +847,12 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
 
                 <button
                   onClick={startInterview}
-                  disabled={!isSupported || !!speechError || !microphoneReady}
+                  disabled={
+                    !isSupported ||
+                    !!speechError ||
+                    !microphoneReady ||
+                    cameraError
+                  }
                   className="w-full px-8 py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold text-lg rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 >
                   🎤 Start Smart Interview

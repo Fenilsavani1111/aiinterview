@@ -3,6 +3,7 @@ import {
   InterviewQuestion,
   QuestionResponse,
 } from "../components/InterviewInterface";
+import { JobPost } from "../components/NameEmailModal";
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -564,116 +565,6 @@ export const getInterviewOverviewWithAI = async (
   interviewQuestions: InterviewQuestion[],
   candidateInterview: QuestionResponse[]
 ) => {
-  // let dami = [
-  //   {
-  //     "id": 10,
-  //     "question": "Can you explain the box model in CSS?",
-  //     "type": "technical",
-  //     "difficulty": "easy",
-  //     "expectedDuration": 120,
-  //     "category": "CSS",
-  //     "suggestedAnswers": [
-  //       "The box model consists of margins, borders, padding, and the actual content area.",
-  //       "Margins are the outermost layer, followed by borders, padding, and then the content itself."
-  //     ],
-  //     "isRequired": true,
-  //     "order": 10
-  //   },
-  //   {
-  //     "id": 11,
-  //     "question": "What is the difference between '== ' and '===' in JavaScript?",
-  //     "type": "technical",
-  //     "difficulty": "medium",
-  //     "expectedDuration": 90,
-  //     "category": "JavaScript",
-  //     "suggestedAnswers": [
-  //       "'==' checks for value equality, while '===' checks for both value and type equality.",
-  //       "'===' is generally preferred to avoid type coercion issues."
-  //     ],
-  //     "isRequired": true,
-  //     "order": 11
-  //   },
-  //   {
-  //     "id": 12,
-  //     "question": "How do you ensure that your web applications are responsive?",
-  //     "type": "behavioral",
-  //     "difficulty": "medium",
-  //     "expectedDuration": 120,
-  //     "category": "Web Development",
-  //     "suggestedAnswers": [
-  //       "Using CSS media queries to adjust styles based on screen size.",
-  //       "Utilizing flexible grid layouts and responsive images."
-  //     ],
-  //     "isRequired": true,
-  //     "order": 12
-  //   },
-  //   {
-  //     "id": 13,
-  //     "question": "Can you describe a time when you had to troubleshoot a web application issue?",
-  //     "type": "behavioral",
-  //     "difficulty": "medium",
-  //     "expectedDuration": 180,
-  //     "category": "Troubleshooting",
-  //     "suggestedAnswers": [
-  //       "I encountered a bug that caused a page to not load properly, and I used the browser's developer tools to identify the issue.",
-  //       "I resolved a compatibility issue by testing the application on different browsers and applying necessary fixes."
-  //     ],
-  //     "isRequired": true,
-  //     "order": 13
-  //   },
-  //   {
-  //     "id": 14,
-  //     "question": "What is your experience with version control systems like Git?",
-  //     "type": "technical",
-  //     "difficulty": "easy",
-  //     "expectedDuration": 90,
-  //     "category": "Version Control",
-  //     "suggestedAnswers": [
-  //       "I have used Git for version control in my projects, including branching and merging.",
-  //       "I understand how to commit changes and resolve merge conflicts."
-  //     ],
-  //     "isRequired": true,
-  //     "order": 14
-  //   },
-  //   {
-  //     "id": 15,
-  //     "question": "How do you stay updated with the latest web development trends and technologies?",
-  //     "type": "behavioral",
-  //     "difficulty": "easy",
-  //     "expectedDuration": 120,
-  //     "category": "Professional Development",
-  //     "suggestedAnswers": [
-  //       "I follow web development blogs and forums.",
-  //       "I participate in online courses and webinars."
-  //     ],
-  //     "isRequired": true,
-  //     "order": 15
-  //   },
-  //   {
-  //     "id": 16,
-  //     "question": "What role does accessibility play in web development?",
-  //     "type": "technical",
-  //     "difficulty": "medium",
-  //     "expectedDuration": 120,
-  //     "category": "Web Development",
-  //     "suggestedAnswers": [
-  //       "Accessibility ensures that web applications are usable by people with disabilities.",
-  //       "I implement ARIA roles and ensure proper semantic HTML."
-  //     ],
-  //     "isRequired": true,
-  //     "order": 16
-  //   }
-  // ]
-  // let answer = [
-  //   {
-  //     "question": "Can you explain the box model in CSS?",
-  //     "userAnswer": "box model consists of March in border paiding and content area",
-  //     "aiEvaluation": "Good attempt, next one!",
-  //     "score": 3,
-  //     "timestamp": "2025-08-23T13:57:09.337Z",
-  //     "responseTime": 45.691
-  //   }
-  // ]
   try {
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -745,7 +636,6 @@ ${candidateInterview.map(v =>
   }
 };
 
-
 // get behaviour analysis using python api
 export const getBehaviouralAnalysis = async (
   video_url: string
@@ -759,6 +649,76 @@ export const getBehaviouralAnalysis = async (
     })
     let res = await response.json()
     return res
+  } catch (error) {
+    console.log("error", error);
+  }
+};
+
+// get overview skill breakdown with ai
+export const getCvMatchWithJD = async (
+  jobdetails: JobPost,
+  resumetext: string
+) => {
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        // {
+        //   role: "system",
+        //   content: "You are a resume-to-job matching engine. Compare the resume against the job post and return a JSON object with match percentages."
+        // },
+        // {
+        //   role: "user",
+        //   content: `RESUME: ${resumetext}\n\nJOB POST: ${JSON.stringify(jobdetails)}`
+        // }
+        {
+          role: "system",
+          content: `You are a resume-to-job matching engine and a structured data extractor. 
+1. First, extract structured data from the resume into JSON format. 
+2. Then, compare the extracted resume data against the job post and return a JSON object with match percentages.
+3. Always respond only in pure JSON without any explanation.`
+        },
+        {
+          role: "user",
+          content: `
+RESUME TEXT:
+"""
+${resumetext}
+"""
+
+JOB POST:
+${JSON.stringify(jobdetails)}
+
+Respond only in this JSON format:
+{
+  "job_data": {
+    "name": "",
+    "email": "",
+    "phone": "",
+    "experienceLevel": "",
+    "designation": "",
+    "location": "",
+    "skills": []
+  },
+  "match": {
+    "overallMatchPercentage": 0,
+    "skillsMatchPercentage": 0,
+    "experienceMatchPercentage": 0,
+    "educationMatchPercentage": 0,
+    "locationMatchPercentage": 0
+  }
+}
+`
+        }
+      ],
+      temperature: 0.3,
+      response_format: {
+        type: "json_object",
+      },
+    });
+    let responseText = response.choices[0]?.message?.content ?? "";
+    const evaluation = JSON.parse(responseText);
+    return evaluation;
   } catch (error) {
     console.log("error", error);
   }

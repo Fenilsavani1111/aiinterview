@@ -5,13 +5,15 @@ import { Plus, Trash2, Upload } from "lucide-react";
 import axios from "axios";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfjsWorker from "pdfjs-dist/build/pdf.worker.min?url";
-import { getDataFromResumePdf } from "../services/apiService";
+import { getCvMatchWithJD, getDataFromResumePdf } from "../services/apiService";
+import { InterviewQuestion } from "./InterviewInterface";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 interface Props {
   isOpen: boolean;
   isLoading: boolean;
+  modalError: string | null;
   onSubmitPopup: (
     name: string,
     email: string,
@@ -22,15 +24,39 @@ interface Props {
     location: string,
     skills: string[]
   ) => void;
+  jobData: JobPost | null;
+}
+
+export interface JobPost {
+  id?: string;
+  jobTitle: string;
+  company: string;
+  department: string;
+  location: string;
+  jobType: "full-time" | "part-time" | "contract" | "internship";
+  experienceLevel: string;
+  jobDescription: string;
+  salaryMin: number;
+  salaryMax: number;
+  salaryCurrency: string;
+  questions: InterviewQuestion[];
+  requirements: string[];
+  responsibilities: string[];
+  skills: string[];
+  candidates?: [];
 }
 
 const NameEmailModal: React.FC<Props> = ({
   isOpen,
   onSubmitPopup,
   isLoading,
+  modalError,
+  jobData,
 }) => {
   const [fileName, setFileName] = useState("");
   const [isResumeUploading, setIsResumeUploading] = useState(false);
+  const [cvMatch, setCvMatch] = useState<number>(-1);
+
   // Validation schema using Yup and formik
   const {
     values,
@@ -56,11 +82,13 @@ const NameEmailModal: React.FC<Props> = ({
       email: Yup.string()
         .email("Invalid email address")
         .required("Email is required"),
-      resumeUrl: Yup.string().url("Enter a valid URL"),
+      resumeUrl: Yup.string()
+        .required("Resume is required")
+        .url("Enter a valid URL"),
       mobile: Yup.string().required("Mobile is required"),
-      experienceLevel: Yup.string(),
-      designation: Yup.string(),
-      location: Yup.string(),
+      experienceLevel: Yup.string().required("Experience Level is required"),
+      designation: Yup.string().required("Designation is required"),
+      location: Yup.string().required("Location is required"),
       skills: Yup.array().of(
         Yup.string()
         // .required("Skill cannot be empty")
@@ -83,74 +111,105 @@ const NameEmailModal: React.FC<Props> = ({
   const uploadResumeFile = async (file: any) => {
     try {
       setIsResumeUploading(true);
-      const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({
-        data: arrayBuffer,
-      }).promise;
-      let fullText = "";
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const content = await page.getTextContent();
-        fullText +=
-          content.items
-            .map((item) => ("str" in item ? item.str : ""))
-            .join(" ") + "\n";
-      }
-      let jobData:
-        | {
-            name: string;
-            email: string;
-            phone: string;
-            experienceLevel: string;
-            designation: string;
-            location: string;
-            skills: string[];
-          }
-        | undefined = await getDataFromResumePdf(fullText);
-      let newskills: string[] = [];
-      if (values.skills?.length === 0) {
-        newskills = jobData?.skills ?? [];
-      } else if (values.skills?.length === 1) {
-        newskills =
-          values.skills?.[0]?.length > 0
-            ? [...values.skills]
-            : jobData?.skills ?? [];
-      } else if (values.skills?.length >= 2) {
-        newskills = jobData?.skills ?? [];
-      }
-      setValues({
-        ...values,
-        name: values.name?.length > 0 ? values.name : jobData?.name ?? "",
-        email: values.email?.length > 0 ? values.email : jobData?.email ?? "",
-        mobile:
-          values.mobile?.length > 0 ? values.mobile : jobData?.phone ?? "",
-        designation:
-          values.designation?.length > 0
-            ? values.designation
-            : jobData?.designation ?? "",
-        experienceLevel:
-          values.experienceLevel?.length > 0
-            ? values.experienceLevel
-            : jobData?.experienceLevel ?? "",
-        location:
-          values.location?.length > 0
-            ? values.location
-            : jobData?.location ?? "",
-        skills: newskills,
-      });
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await axios.post(
-        `${import.meta.env.VITE_AIINTERVIEW_API_KEY}/jobposts/upload-resume`,
-        formData,
-        {
-          headers: { "Content-Type": "multipart/form-data" },
+      if (jobData) {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({
+          data: arrayBuffer,
+        }).promise;
+        let fullText = "";
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          fullText +=
+            content.items
+              .map((item) => ("str" in item ? item.str : ""))
+              .join(" ") + "\n";
         }
-      );
-      if (res.data) {
-        if (res.data?.file_url?.length > 0)
-          setFieldValue("resumeUrl", res?.data?.file_url);
-        setIsResumeUploading(false);
+        // check resume parser (compare jobpost and resume) and get popup fields form resume
+        let cvparserdata = await getCvMatchWithJD(
+          {
+            jobTitle: jobData?.jobTitle,
+            company: jobData?.company,
+            department: jobData?.department,
+            location: jobData?.location,
+            jobType: jobData?.jobType,
+            experienceLevel: jobData?.experienceLevel,
+            jobDescription: jobData?.jobDescription,
+            salaryMin: jobData?.salaryMin,
+            salaryMax: jobData?.salaryMax,
+            salaryCurrency: jobData?.salaryCurrency,
+            requirements: jobData?.requirements ?? [],
+            responsibilities: jobData?.responsibilities ?? [],
+            skills: jobData?.skills ?? [],
+            questions: [],
+          },
+          fullText
+        );
+        let resumedata = cvparserdata?.job_data;
+        let matchData = cvparserdata?.match;
+        if (matchData?.overallMatchPercentage >= 0) {
+          setCvMatch(matchData?.overallMatchPercentage ?? 0);
+          if (cvMatch >= 60) setIsResumeUploading(false);
+          else {
+            let newskills = [];
+            if (values.skills?.length === 0) {
+              newskills = resumedata?.skills ?? [];
+            } else if (values.skills?.length === 1) {
+              newskills =
+                values.skills?.[0]?.length > 0
+                  ? [...values.skills]
+                  : resumedata?.skills ?? [];
+            } else if (values.skills?.length >= 2) {
+              newskills = resumedata?.skills ?? [];
+            }
+            setValues({
+              ...values,
+              name:
+                values.name?.length > 0 ? values.name : resumedata?.name ?? "",
+              email:
+                values.email?.length > 0
+                  ? values.email
+                  : resumedata?.email ?? "",
+              mobile:
+                values.mobile?.length > 0
+                  ? values.mobile
+                  : resumedata?.phone ?? "",
+              designation:
+                values.designation?.length > 0
+                  ? values.designation
+                  : resumedata?.designation ?? "",
+              experienceLevel:
+                values.experienceLevel?.length > 0
+                  ? values.experienceLevel
+                  : resumedata?.experienceLevel ?? "",
+              location:
+                values.location?.length > 0
+                  ? values.location
+                  : resumedata?.location ?? "",
+              skills: newskills,
+            });
+            //upload resume to cloud
+            const formData = new FormData();
+            formData.append("file", file);
+            const res = await axios.post(
+              `${
+                import.meta.env.VITE_AIINTERVIEW_API_KEY
+              }/jobposts/upload-resume`,
+              formData,
+              {
+                headers: { "Content-Type": "multipart/form-data" },
+              }
+            );
+            if (res.data) {
+              if (res.data?.file_url?.length > 0)
+                setFieldValue("resumeUrl", res?.data?.file_url);
+              setIsResumeUploading(false);
+            }
+          }
+        } else {
+          setCvMatch(-1);
+          setIsResumeUploading(false);
+        }
       }
     } catch (error) {
       setIsResumeUploading(false);
@@ -161,11 +220,44 @@ const NameEmailModal: React.FC<Props> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 flex overflow-y-auto flex-grow items-center justify-center bg-black bg-opacity-80 z-50">
-      <div className="max-h-[90vh] w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-gray-900 bg-opacity-95">
+      {cvMatch >= 0 && cvMatch < 60 ? (
+        <div className="fixed inset-0 flex overflow-y-auto flex-grow items-center justify-center bg-gray-900 z-50">
+          <div className="max-h-[90vh] w-full max-w-md">
+            <div className="bg-gray-800 p-8 rounded-2xl shadow-2xl w-11/12 max-w-md border border-gray-700 text-center">
+              <div className="mb-6">
+                <div className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg
+                    className="w-8 h-8 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                    />
+                  </svg>
+                </div>
+                <h2 className="text-xl font-bold text-white mb-2">
+                  You are not eligible for {jobData?.jobTitle} Interview.
+                </h2>
+                <p className="text-gray-300 text-lg leading-relaxed">
+                  You resume is match only {cvMatch ?? 40}% with job.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <></>
+      )}
+      <div className="w-full max-w-md text-center my-10">
         <form
           onSubmit={handleSubmit}
-          className="p-8 bg-gray-900 rounded-2xl shadow-2xl flex flex-col"
+          className="p-8 bg-gray-900 rounded-2xl shadow-sm shadow-gray-700 flex flex-col"
         >
           <h2 className="text-2xl font-extrabold text-white text-center tracking-wide mb-6">
             Enter Your Details
@@ -313,6 +405,8 @@ const NameEmailModal: React.FC<Props> = ({
           {Object.values(touched)?.length > 0 &&
           Object.values(errors)?.length > 0 ? (
             <p className="text-red-600 mb-2">{Object.values(errors)[0]}</p>
+          ) : modalError ? (
+            <p className="text-red-600 mb-2">{modalError}</p>
           ) : (
             <></>
           )}

@@ -62,10 +62,10 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
           <h2 className="text-3xl font-bold text-gray-800 mb-4">
             Interview Complete!
           </h2>
-          <p className="text-gray-600 text-lg">
+          {/* <p className="text-gray-600 text-lg">
             Great job completing your interview. Here's your performance
             summary:
-          </p>
+          </p> */}
         </div>
         {isLoading ? (
           <div className="mt-5">Loading....</div>
