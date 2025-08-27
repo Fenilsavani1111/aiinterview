@@ -642,6 +642,7 @@ export const getBehaviouralAnalysis = async (
 ) => {
   try {
     const response = await fetch(`${import.meta.env.VITE_BEHAVIOUR_API}`, {
+      method: "POST",
       headers: {
         'Content-Type': 'application/json',
       },

@@ -9,6 +9,7 @@ import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
 import { useAudioPlayer } from "../hooks/useAudioPlayer";
 import { useCamera } from "../hooks/useCamera";
 import {
+  getBehaviouralAnalysis,
   getInterviewOverviewWithAI,
   processPhysicsQuestion,
   textToSpeech,
@@ -69,6 +70,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
   const [microphoneReady, setMicrophoneReady] = useState(false);
   const [audioPlaying, setAudioPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [errorText, setErrorText] = useState<string | null>(null);
 
   const questionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const interviewTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -378,7 +380,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
           console.log("➡️ Moving to next question...");
           setTimeout(() => {
             askNextQuestion(updatedSession);
-          }, 1500);
+          }, 2000);
         } catch (error) {
           console.error("💥 Error playing feedback:", error);
           setTimeout(() => {
@@ -466,7 +468,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
     askNextQuestion,
     transcript,
   ]);
-
+  console.log("loading", isLoading);
   // upload recording to cloud
   const uploadinterviewvideo = async (file: any, interviewoverview: any) => {
     try {
@@ -482,14 +484,42 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
           headers: { "Content-Type": "multipart/form-data" },
         }
       );
-      if (res.data) {
-        updateCandidateDetails(
-          res.data?.file_url?.length > 0 ? res?.data?.file_url : null,
-          interviewoverview
-        );
+      if (res.data?.file_url) {
+        try {
+          let behavioraldata = await getBehaviouralAnalysis(res.data?.file_url);
+          if (behavioraldata?.report) {
+            let report = behavioraldata?.report;
+            let cultural_fit_analysis = report?.cultural_fit_analysis;
+            let overall_behavior_analysis = report?.overall_behavior_analysis;
+            delete report.cultural_fit_analysis;
+            delete report.overall_behavior_analysis;
+            updateCandidateDetails(
+              res.data?.file_url?.length > 0 ? res?.data?.file_url : null,
+              {
+                ...interviewoverview,
+                ...report,
+                performanceBreakdown: {
+                  ...interviewoverview?.performanceBreakdown,
+                  culturalFitAnalysis: cultural_fit_analysis,
+                  behaviorAnalysis: overall_behavior_analysis,
+                },
+              }
+            );
+          }
+        } catch (error) {
+          console.log("python api", error);
+          setErrorText(
+            "Sorry, please try again with different email or contact to admin"
+          );
+          setIsLoading(false);
+        }
+      } else {
+        setIsLoading(false);
+        setErrorText("Sorry, not able to upload interview view");
       }
     } catch (error) {
       console.error("Error uploading resume file:", error);
+      setErrorText("Sorry, not able to upload interview view");
       setIsLoading(false);
     }
   };
@@ -499,95 +529,104 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
     videolink: string | null,
     interviewoverview: any
   ) => {
-    try {
-      setIsLoading(true);
-      const totalTime = session?.endTime
-        ? Math.round(
-            (session.endTime.getTime() - session.startTime.getTime()) /
-              1000 /
-              60
-          )
-        : 0;
+    console.log("interviewoverview", interviewoverview);
+    // try {
+    //   setIsLoading(true);
+    //   const totalTime = session?.endTime
+    //     ? Math.round(
+    //         (session.endTime.getTime() - session.startTime.getTime()) /
+    //           1000 /
+    //           60
+    //       )
+    //     : 0;
 
-      let averageScore = 0;
-      let totalScore = 0;
-      let averageResponseTime = 0;
-      if (session?.questions) {
-        averageScore =
-          session?.questions.length > 0
-            ? Math.round(
-                session?.questions.reduce((sum, q) => sum + q.score, 0) /
-                  session?.questions.length
-              )
-            : 0;
-        totalScore =
-          session?.questions.length > 0
-            ? Math.round(
-                session?.questions.reduce((sum, q) => sum + q.score, 0)
-              )
-            : 0;
+    //   let averageScore = 0;
+    //   let totalScore = 0;
+    //   let averageResponseTime = 0;
+    //   if (session?.questions) {
+    //     averageScore =
+    //       session?.questions.length > 0
+    //         ? Math.round(
+    //             session?.questions.reduce((sum, q) => sum + q.score, 0) /
+    //               session?.questions.length
+    //           )
+    //         : 0;
+    //     totalScore =
+    //       session?.questions.length > 0
+    //         ? Math.round(
+    //             session?.questions.reduce((sum, q) => sum + q.score, 0)
+    //           )
+    //         : 0;
 
-        averageResponseTime =
-          session?.questions.length > 0
-            ? Math.round(
-                session?.questions.reduce((sum, q) => sum + q.responseTime, 0) /
-                  session?.questions.length
-              )
-            : 0;
-      }
-      const gradeInfo = getGrade(averageScore);
-      let newQuestions: any[] = [];
-      physicsQuestions.map((ques: any) => {
-        let question = { ...ques };
-        let findquesResp = session?.questions?.find(
-          (item) => item.question === ques?.question
-        );
-        newQuestions.push({
-          questionId: question?.id,
-          studentId: candidateId,
-          answer: findquesResp?.userAnswer ?? "",
-          aiEvaluation: findquesResp?.aiEvaluation ?? "",
-          score: findquesResp?.score ?? 0,
-          responseTime: findquesResp?.responseTime ?? 0,
-        });
-      });
-      // setIsModalLoading(true);
-      const response = await axios.post(
-        `${
-          import.meta.env.VITE_AIINTERVIEW_API_KEY
-        }/jobposts/update-candidate-byid`,
-        {
-          candidateId: candidateId,
-          data: {
-            interviewVideoLink: videolink ?? "",
-            status: "completed",
-            interviewDate: new Date(),
-            hasRecording: videolink ? true : false,
-            questions: newQuestions,
-            attemptedQuestions: session?.questions?.length ?? 0,
-            overallScore: averageScore,
-            totalScore: totalScore,
-            grade: gradeInfo?.grade,
-            duration: totalTime,
-            averageResponseTime: averageResponseTime,
-          },
-        },
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-      if (response.data) {
-        // You can handle the response here (e.g., save data, show a message, etc.)
-        setIsLoading(false);
-        console.log("update candidate details response:", response.data);
-      }
-    } catch (error: any) {
-      setIsLoading(false);
-      // Handle error (show error message, etc.)
-      console.error("Error joining job link:", error);
-    }
+    //     averageResponseTime =
+    //       session?.questions.length > 0
+    //         ? Math.round(
+    //             session?.questions.reduce((sum, q) => sum + q.responseTime, 0) /
+    //               session?.questions.length
+    //           )
+    //         : 0;
+    //   }
+    //   const gradeInfo = getGrade(averageScore);
+    //   let newQuestions: any[] = [];
+    //   physicsQuestions.map((ques: any) => {
+    //     let question = { ...ques };
+    //     let findquesResp = session?.questions?.find(
+    //       (item) => item.question === ques?.question
+    //     );
+    //     newQuestions.push({
+    //       questionId: question?.id,
+    //       studentId: candidateId,
+    //       answer: findquesResp?.userAnswer ?? "",
+    //       aiEvaluation: findquesResp?.aiEvaluation ?? "",
+    //       score: findquesResp?.score ?? 0,
+    //       responseTime: findquesResp?.responseTime ?? 0,
+    //     });
+    //   });
+    //   // setIsModalLoading(true);
+    //   const response = await axios.post(
+    //     `${
+    //       import.meta.env.VITE_AIINTERVIEW_API_KEY
+    //     }/jobposts/update-candidate-byid`,
+    //     {
+    //       candidateId: candidateId,
+    //       data: {
+    //         interviewVideoLink: videolink ?? "",
+    //         status: "completed",
+    //         interviewDate: new Date(),
+    //         hasRecording: videolink ? true : false,
+    //         questions: newQuestions,
+    //         attemptedQuestions: session?.questions?.length ?? 0,
+    //         overallScore: averageScore,
+    //         totalScore: totalScore,
+    //         grade: gradeInfo?.grade,
+    //         duration: totalTime,
+    //         averageResponseTime: averageResponseTime,
+    //       },
+    //     },
+    //     {
+    //       headers: {
+    //         "Content-Type": "application/json",
+    //       },
+    //     }
+    //   );
+    //   if (response.data) {
+    //   // You can handle the response here (e.g., save data, show a message, etc.)
+    setIsLoading(false);
+    //     console.log("update candidate details response:", response.data);
+    //   } else {
+    //     setErrorText(
+    //       "Sorry, please try again with different email or contact to admin"
+    //     );
+    //     setIsLoading(false);
+    //   }
+    // } catch (error: any) {
+    //   setIsLoading(false);
+    //   // Handle error (show error message, etc.)
+    //   console.error("Error joining job link:", error);
+    //   setErrorText(
+    //     "Sorry, please try again with different email or contact to admin"
+    //   );
+    // }
   };
 
   // End interview
@@ -620,7 +659,6 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         status: "completed",
       });
     }
-    setIsLoading(false);
 
     // Clear all timeouts
     [questionTimeoutRef, interviewTimeoutRef, processingTimeoutRef].forEach(
@@ -851,7 +889,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
                     !isSupported ||
                     !!speechError ||
                     !microphoneReady ||
-                    cameraError
+                    !!cameraError
                   }
                   className="w-full px-8 py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold text-lg rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 >
@@ -866,6 +904,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
             session={session}
             onRestart={resetInterview}
             isLoading={isLoading}
+            errorText={errorText}
           />
         ) : (
           /* Active Interview */

@@ -7,6 +7,7 @@ interface InterviewSummaryProps {
   session: InterviewSession;
   onRestart: () => void;
   isLoading?: boolean;
+  errorText?: string | null;
 }
 
 export const getGrade = (score: number) => {
@@ -27,6 +28,7 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
   session,
   onRestart,
   isLoading,
+  errorText,
 }) => {
   const totalTime = session.endTime
     ? Math.round(
@@ -55,18 +57,30 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
   return (
     <div className="max-w-4xl mx-auto">
       <div className="bg-white/70 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 p-8">
-        <div className="text-center mb-8">
-          <div className="p-6 bg-gradient-to-br from-green-100 to-blue-100 rounded-full mb-6 w-24 h-24 mx-auto flex items-center justify-center">
-            <Award className="w-12 h-12 text-green-600" />
+        {errorText ? (
+          <div className="text-center mb-8">
+            {/* <div className="p-6 bg-gradient-to-br from-green-100 to-blue-100 rounded-full mb-6 w-24 h-24 mx-auto flex items-center justify-center">
+          <Award className="w-12 h-12 text-green-600" />
+        </div> */}
+            <h2 className="text-3xl font-bold text-gray-800 mb-4">
+              Interview Incomplete
+            </h2>
+            <p className="text-gray-600 text-lg">{errorText}</p>
           </div>
-          <h2 className="text-3xl font-bold text-gray-800 mb-4">
-            Interview Complete!
-          </h2>
-          {/* <p className="text-gray-600 text-lg">
+        ) : (
+          <div className="text-center mb-8">
+            <div className="p-6 bg-gradient-to-br from-green-100 to-blue-100 rounded-full mb-6 w-24 h-24 mx-auto flex items-center justify-center">
+              <Award className="w-12 h-12 text-green-600" />
+            </div>
+            <h2 className="text-3xl font-bold text-gray-800 mb-4">
+              Interview Complete!
+            </h2>
+            {/* <p className="text-gray-600 text-lg">
             Great job completing your interview. Here's your performance
             summary:
           </p> */}
-        </div>
+          </div>
+        )}
         {isLoading ? (
           <div className="mt-5">Loading....</div>
         ) : (
