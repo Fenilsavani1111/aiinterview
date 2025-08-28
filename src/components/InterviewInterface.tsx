@@ -8,9 +8,13 @@ import { getGrade, InterviewSummary } from "./InterviewSummary";
 import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
 import { useAudioPlayer } from "../hooks/useAudioPlayer";
 import { useCamera } from "../hooks/useCamera";
-import { processPhysicsQuestion, textToSpeech } from "../services/apiService";
+import {
+  getBehaviouralAnalysis,
+  getInterviewOverviewWithAI,
+  processPhysicsQuestion,
+  textToSpeech,
+} from "../services/apiService";
 import axios from "axios";
-// import { physicsQuestions } from '../data/physicsQuestions';
 
 export interface InterviewSession {
   id: string;
@@ -22,7 +26,7 @@ export interface InterviewSession {
   status: "waiting" | "active" | "completed";
 }
 
-interface QuestionResponse {
+export interface QuestionResponse {
   question: string;
   userAnswer: string;
   aiEvaluation: string;
@@ -31,7 +35,7 @@ interface QuestionResponse {
   responseTime: number;
 }
 
-interface InterviewQuestion {
+export interface InterviewQuestion {
   id: string;
   question: string;
   type: "behavioral" | "technical" | "general" | "situational";
@@ -49,7 +53,6 @@ interface InterviewInterfaceProps {
   fetchQueData: {
     jobTitle?: string;
   } | null;
-  title: string;
   candidateId?: string | null;
 }
 
@@ -67,6 +70,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
   const [microphoneReady, setMicrophoneReady] = useState(false);
   const [audioPlaying, setAudioPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [errorText, setErrorText] = useState<string | null>(null);
 
   const questionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const interviewTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -145,6 +149,13 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
     if (!microphoneReady) {
       alert(
         "Microphone is not ready. Please allow microphone access and refresh the page."
+      );
+      return;
+    }
+
+    if (cameraError != null) {
+      alert(
+        "Camera is not ready. Please allow camera access and refresh the page."
       );
       return;
     }
@@ -339,7 +350,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
           question: currentQuestion,
           userAnswer: trimmedAnswer,
           aiEvaluation: evaluation.feedback,
-          score: evaluation.score,
+          score: evaluation.score ?? 0,
           timestamp: new Date(),
           responseTime: responseTime / 1000,
         };
@@ -369,7 +380,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
           console.log("➡️ Moving to next question...");
           setTimeout(() => {
             askNextQuestion(updatedSession);
-          }, 1500);
+          }, 2000);
         } catch (error) {
           console.error("💥 Error playing feedback:", error);
           setTimeout(() => {
@@ -459,7 +470,11 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
   ]);
 
   // upload recording to cloud
-  const uploadinterviewvideo = async (file: any) => {
+  const uploadinterviewvideo = async (
+    file: any,
+    damisession: InterviewSession,
+    interviewoverview: any
+  ) => {
     try {
       setIsLoading(true);
       const formData = new FormData();
@@ -473,24 +488,62 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
           headers: { "Content-Type": "multipart/form-data" },
         }
       );
-      if (res.data) {
-        updateCandidateDetails(
-          res.data?.file_url?.length > 0 ? res?.data?.file_url : null
-        );
+      if (res.data?.file_url) {
+        try {
+          let behavioraldata = await getBehaviouralAnalysis(res.data?.file_url);
+          if (behavioraldata?.report) {
+            let report = behavioraldata?.report;
+            let cultural_fit_analysis = report?.cultural_fit_analysis;
+            let overall_behavior_analysis = report?.overall_behavior_analysis;
+            let body_language_analysis = report?.body_language_analysis;
+            delete report.cultural_fit_analysis;
+            delete report.overall_behavior_analysis;
+            delete report.body_language_analysis;
+            updateCandidateDetails(
+              res.data?.file_url?.length > 0 ? res?.data?.file_url : null,
+              damisession,
+              {
+                ...interviewoverview,
+                ...report,
+                performanceBreakdown: {
+                  ...interviewoverview?.performanceBreakdown,
+                  culturalFit: cultural_fit_analysis,
+                  behavior: overall_behavior_analysis,
+                  body_language: body_language_analysis ?? {},
+                },
+              }
+            );
+          }
+        } catch (error) {
+          setIsLoading(false);
+          setErrorText(
+            "Sorry, please try again with different email or contact to admin"
+          );
+          console.log("python api", error);
+        }
+      } else {
+        setIsLoading(false);
+        setErrorText("Sorry, not able to upload interview view");
       }
     } catch (error) {
       console.error("Error uploading resume file:", error);
+      setErrorText("Sorry, not able to upload interview view");
       setIsLoading(false);
     }
   };
 
+  console.log("session", session);
   // update candidate interview
-  const updateCandidateDetails = async (videolink: string | null) => {
+  const updateCandidateDetails = async (
+    videolink: string | null,
+    damisession: InterviewSession,
+    interviewoverview: any
+  ) => {
     try {
       setIsLoading(true);
-      const totalTime = session?.endTime
+      const totalTime = damisession?.endTime
         ? Math.round(
-            (session.endTime.getTime() - session.startTime.getTime()) /
+            (damisession.endTime.getTime() - damisession.startTime.getTime()) /
               1000 /
               60
           )
@@ -499,26 +552,30 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
       let averageScore = 0;
       let totalScore = 0;
       let averageResponseTime = 0;
-      if (session?.questions) {
+      if (damisession?.questions) {
         averageScore =
-          session?.questions.length > 0
+          damisession?.questions.length > 0
             ? Math.round(
-                session?.questions.reduce((sum, q) => sum + q.score, 0) /
-                  session?.questions.length
+                damisession?.questions.reduce(
+                  (sum: any, q: { score: any }) => sum + q.score,
+                  0
+                ) / damisession?.questions.length
               )
             : 0;
         totalScore =
-          session?.questions.length > 0
+          damisession?.questions.length > 0
             ? Math.round(
-                session?.questions.reduce((sum, q) => sum + q.score, 0)
+                damisession?.questions.reduce((sum, q) => sum + q.score, 0)
               )
             : 0;
 
         averageResponseTime =
-          session?.questions.length > 0
+          damisession?.questions.length > 0
             ? Math.round(
-                session?.questions.reduce((sum, q) => sum + q.responseTime, 0) /
-                  session?.questions.length
+                damisession?.questions.reduce(
+                  (sum, q) => sum + q.responseTime,
+                  0
+                ) / damisession?.questions.length
               )
             : 0;
       }
@@ -538,6 +595,26 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
           responseTime: findquesResp?.responseTime ?? 0,
         });
       });
+      let damiscores = {
+        communication:
+          interviewoverview?.performanceBreakdown?.communicationSkills
+            ?.overallAveragePercentage ?? 0,
+        technical:
+          interviewoverview?.performanceBreakdown?.technicalKnowledge
+            ?.overallAveragePercentage ?? 0,
+        problemSolving:
+          interviewoverview?.performanceBreakdown?.problemSolving
+            ?.overallAveragePercentage ?? 0,
+        leadership:
+          interviewoverview?.performanceBreakdown?.leadershipPotential
+            ?.overallAveragePercentage ?? 0,
+        bodyLanguage:
+          interviewoverview?.performanceBreakdown?.body_language
+            ?.overallAveragePercentage ?? 0,
+        confidence:
+          interviewoverview?.performanceBreakdown?.confidenceLevel
+            ?.overallAveragePercentage ?? 0,
+      };
       // setIsModalLoading(true);
       const response = await axios.post(
         `${
@@ -556,7 +633,9 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
             totalScore: totalScore,
             grade: gradeInfo?.grade,
             duration: totalTime,
+            scores: damiscores,
             averageResponseTime: averageResponseTime,
+            ...interviewoverview,
           },
         },
         {
@@ -569,30 +648,52 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         // You can handle the response here (e.g., save data, show a message, etc.)
         setIsLoading(false);
         console.log("update candidate details response:", response.data);
+      } else {
+        setErrorText(
+          "Sorry, please try again with different email or contact to admin"
+        );
+        setIsLoading(false);
       }
     } catch (error: any) {
       setIsLoading(false);
       // Handle error (show error message, etc.)
       console.error("Error joining job link:", error);
+      setErrorText(
+        "Sorry, please try again with different email or contact to admin"
+      );
     }
   };
 
   // End interview
   const endInterview = useCallback(async () => {
     console.log("🏁 Ending interview");
+    setIsLoading(true);
     setInterviewStarted(false);
     setWaitingForAnswer(false);
     setAudioPlaying(false);
     stopListening();
     stopAudio();
     let data = await stopRecording();
-    if (data?.blob) {
-      uploadinterviewvideo(data.blob);
-    } else {
-      updateCandidateDetails(null);
-    }
-    setCurrentQuestion("");
     if (session) {
+      let damisession: InterviewSession = {
+        ...session,
+        endTime: new Date(),
+        status: "completed",
+      };
+      setCurrentQuestion("");
+      if (session?.questions && session?.questions?.length > 0) {
+        let interviewoverview = await getInterviewOverviewWithAI(
+          physicsQuestions,
+          session?.questions ?? []
+        );
+        if (data?.blob) {
+          uploadinterviewvideo(data.blob, damisession, {
+            ...interviewoverview,
+          });
+        } else {
+          updateCandidateDetails(null, damisession, { ...interviewoverview });
+        }
+      }
       setSession({
         ...session,
         endTime: new Date(),
@@ -732,7 +833,18 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
           </p>
         </div>
 
-        {!interviewStarted && !session?.status ? (
+        {isLoading ? (
+          <div className="max-w-2xl mx-auto">
+            <div className="bg-white/70 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 p-8">
+              <div className="flex flex-col justify-center items-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <span className="mt-3 text-gray-600">
+                  Please wait do not refresh page...
+                </span>
+              </div>
+            </div>
+          </div>
+        ) : !interviewStarted && !session?.status ? (
           /* Pre-Interview Setup */
           <div className="max-w-2xl mx-auto">
             <div className="bg-white/70 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 p-8">
@@ -746,8 +858,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
                 </h2>
                 <p className="text-gray-600 mb-6">
                   🎤 <strong>Intelligent Voice Detection!</strong> The system
-                  understands when you're speaking. Answer{" "}
-                  {physicsQuestions.length} questions naturally.
+                  understands when you're speaking. Answer questions naturally.
                   <br />
                   <br />
                   <strong>Speak at your own pace - no rushing needed!</strong>
@@ -815,7 +926,12 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
 
                 <button
                   onClick={startInterview}
-                  disabled={!isSupported || !!speechError || !microphoneReady}
+                  disabled={
+                    !isSupported ||
+                    !!speechError ||
+                    !microphoneReady ||
+                    !!cameraError
+                  }
                   className="w-full px-8 py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold text-lg rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 >
                   🎤 Start Smart Interview
@@ -829,6 +945,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
             session={session}
             onRestart={resetInterview}
             isLoading={isLoading}
+            errorText={errorText}
           />
         ) : (
           /* Active Interview */

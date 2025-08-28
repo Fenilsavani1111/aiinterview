@@ -317,7 +317,7 @@ export const useCamera = (): CameraHook => {
 
   const stopRecording = useCallback(async (): Promise<StartRecordingType | null> => {
     try {
-      console.log("Stopping recording...");
+      console.log("Stopping recording...", mediaRecorderRef);
       let blobPromise = new Promise<StartRecordingType>((resolve, reject) => {
         if (
           mediaRecorderRef.current &&
@@ -342,6 +342,7 @@ export const useCamera = (): CameraHook => {
           return null;
         }
       });
+      console.log("blobPromise", blobPromise)
       return blobPromise;
     } catch (e) {
       console.error("Error stopping recording:", e);

@@ -7,6 +7,7 @@ interface InterviewSummaryProps {
   session: InterviewSession;
   onRestart: () => void;
   isLoading?: boolean;
+  errorText?: string | null;
 }
 
 export const getGrade = (score: number) => {
@@ -27,6 +28,7 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
   session,
   onRestart,
   isLoading,
+  errorText,
 }) => {
   const totalTime = session.endTime
     ? Math.round(
@@ -55,24 +57,36 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
   return (
     <div className="max-w-4xl mx-auto">
       <div className="bg-white/70 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 p-8">
-        <div className="text-center mb-8">
-          <div className="p-6 bg-gradient-to-br from-green-100 to-blue-100 rounded-full mb-6 w-24 h-24 mx-auto flex items-center justify-center">
-            <Award className="w-12 h-12 text-green-600" />
+        {errorText ? (
+          <div className="text-center mb-8">
+            {/* <div className="p-6 bg-gradient-to-br from-green-100 to-blue-100 rounded-full mb-6 w-24 h-24 mx-auto flex items-center justify-center">
+          <Award className="w-12 h-12 text-green-600" />
+        </div> */}
+            <h2 className="text-3xl font-bold text-gray-800 mb-4">
+              Interview Incomplete
+            </h2>
+            <p className="text-gray-600 text-lg">{errorText}</p>
           </div>
-          <h2 className="text-3xl font-bold text-gray-800 mb-4">
-            Interview Complete!
-          </h2>
-          <p className="text-gray-600 text-lg">
-            Great job completing your physics interview. Here's your performance
+        ) : (
+          <div className="text-center mb-8">
+            <div className="p-6 bg-gradient-to-br from-green-100 to-blue-100 rounded-full mb-6 w-24 h-24 mx-auto flex items-center justify-center">
+              <Award className="w-12 h-12 text-green-600" />
+            </div>
+            <h2 className="text-3xl font-bold text-gray-800 mb-4">
+              Interview Complete!
+            </h2>
+            {/* <p className="text-gray-600 text-lg">
+            Great job completing your interview. Here's your performance
             summary:
-          </p>
-        </div>
+          </p> */}
+          </div>
+        )}
         {isLoading ? (
           <div className="mt-5">Loading....</div>
         ) : (
           <>
             {/* Overall Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            {/* <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
               <div className={`p-6 rounded-2xl text-center ${gradeInfo.bg}`}>
                 <Award className={`w-8 h-8 mx-auto mb-3 ${gradeInfo.color}`} />
                 <div className={`text-3xl font-bold ${gradeInfo.color}`}>
@@ -104,10 +118,10 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                 </div>
                 <div className="text-sm text-gray-600">Avg Response</div>
               </div>
-            </div>
+            </div> */}
 
             {/* Detailed Results */}
-            <div className="mb-8">
+            {/* <div className="mb-8">
               <h3 className="text-xl font-semibold text-gray-800 mb-4">
                 Question-by-Question Results
               </h3>
@@ -161,10 +175,10 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                   </div>
                 ))}
               </div>
-            </div>
+            </div> */}
 
             {/* Actions */}
-            <div className="text-center">
+            {/* <div className="text-center">
               <button
                 onClick={onRestart}
                 className="px-8 py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold text-lg rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300"
@@ -174,7 +188,7 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                   Take Another Interview
                 </div>
               </button>
-            </div>
+            </div> */}
           </>
         )}
       </div>
