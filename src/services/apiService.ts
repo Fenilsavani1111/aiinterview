@@ -573,20 +573,19 @@ export const getInterviewOverviewWithAI = async (
           role: "system",
           content: `You are an assistant that converts interview question data and candidate answers into a single dashboard-ready JSON object and short human summary. Follow these rules exactly:
 1) Treat numeric 'score' as out of 10. Do NOT invent scores for missing answers.
-2) For each category (Communication Skills, Technical Knowledge, Confidence Level, Body Language, Professional Attire, Problem Solving, Leadership Potential, Cultural Fit) compute and return:
+2) For each category (communicationSkills, technicalKnowledge, confidenceLevel, problemSolving, leadershipPotential) compute and return:
    - answeredAveragePercentage: average of only answered questions *10, rounded to 1 decimal place (zero string if none answered)
    - overallAveragePercentage: average across all questions treating missing answers as 0, rounded to 1 decimal place (zero if zero questions)
    - summary: one-sentence description of performance for that category
 3) Also return counts: answeredCount, totalQuestions.
 4) Category mapping:
-   - Communication Skills: type == 'behavioral'
-   - Technical Knowledge: type == 'technical'
-   - Confidence Level: aggregate across all answered and all questions
-   - Body Language / Professional Attire: 'Not assessed (no data)' if no questions map to them
+   - communicationSkills: type == 'behavioral'
+   - technicalKnowledge: type == 'technical'
+   - confidenceLevel: aggregate across all answered and all questions
 5) Build quickStats using the percentage ranges but **return only the label** (Excellent, Good, Fair, Poor) without the numeric ranges. For example, if the percentage falls in 40-59.9%, the output should be "Fair" (do not include "40-59.9%" in the string).
 6) Recommendation: one of {"Highly Recommended", "Recommended", "Consider with reservations", "Not Recommended"}, include a 'summary' field explaining reasoning. Weight: 60% Tech, 40% Communication.
 7) Include meta.assumption: "Scores are out of 10. Missing answers are handled in two ways (answered-only averages and overall averages treating missing required answers as 0). calculationDate: ${new Date().toISOString()}"
-8) Output JSON must include: meta, performanceBreakdown (with percentages and summary), quickStats, recommendation (with summary), aiEvaluationSummary.
+8) Output JSON must include: meta, performanceBreakdown (with percentages and summary), quickStats, recommendations (with summary), aiEvaluationSummary.
 9) aiEvaluationSummary must include: a 'summary' string, a 'keyStrengths' array, and an 'areasOfGrowth' array. Derive these from the computed category results; do not contradict the numbers.
 10) Determinism: Be deterministic (temperature 0). Do not include anything except the single JSON object followed by a 2–6 line human summary.`
         },
@@ -650,8 +649,9 @@ export const getBehaviouralAnalysis = async (
     })
     let res = await response.json()
     return res
-  } catch (error) {
+  } catch (error: any) {
     console.log("error", error);
+    return (typeof error === "object" && error !== null && "message" in error) ? (error as any).message : String(error);
   }
 };
 

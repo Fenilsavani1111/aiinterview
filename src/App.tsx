@@ -118,6 +118,13 @@ let Mockresponse = {
 
 const App: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
+  // const [fetchQueData, setFetchQueData] = useState(Mockresponse);
+  // const [interviewQuestions, setInterviewQuestions] = useState<any[]>([
+  //   ...Mockresponse.questions,
+  // ]);
+  // const [candidateId, setCandidateId] = useState<string | null>(
+  //   Mockresponse.candidateId
+  // );
   const [fetchQueData, setFetchQueData] = useState(null);
   const [interviewQuestions, setInterviewQuestions] = useState<any[]>([]);
   const [candidateId, setCandidateId] = useState<string | null>(null);

@@ -468,9 +468,13 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
     askNextQuestion,
     transcript,
   ]);
-  console.log("loading", isLoading);
+
   // upload recording to cloud
-  const uploadinterviewvideo = async (file: any, interviewoverview: any) => {
+  const uploadinterviewvideo = async (
+    file: any,
+    damisession: InterviewSession,
+    interviewoverview: any
+  ) => {
     try {
       setIsLoading(true);
       const formData = new FormData();
@@ -491,27 +495,31 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
             let report = behavioraldata?.report;
             let cultural_fit_analysis = report?.cultural_fit_analysis;
             let overall_behavior_analysis = report?.overall_behavior_analysis;
+            let body_language_analysis = report?.body_language_analysis;
             delete report.cultural_fit_analysis;
             delete report.overall_behavior_analysis;
+            delete report.body_language_analysis;
             updateCandidateDetails(
               res.data?.file_url?.length > 0 ? res?.data?.file_url : null,
+              damisession,
               {
                 ...interviewoverview,
                 ...report,
                 performanceBreakdown: {
                   ...interviewoverview?.performanceBreakdown,
-                  culturalFitAnalysis: cultural_fit_analysis,
-                  behaviorAnalysis: overall_behavior_analysis,
+                  culturalFit: cultural_fit_analysis,
+                  behavior: overall_behavior_analysis,
+                  body_language: body_language_analysis ?? {},
                 },
               }
             );
           }
         } catch (error) {
-          console.log("python api", error);
+          setIsLoading(false);
           setErrorText(
             "Sorry, please try again with different email or contact to admin"
           );
-          setIsLoading(false);
+          console.log("python api", error);
         }
       } else {
         setIsLoading(false);
@@ -524,109 +532,136 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
     }
   };
 
+  console.log("session", session);
   // update candidate interview
   const updateCandidateDetails = async (
     videolink: string | null,
+    damisession: InterviewSession,
     interviewoverview: any
   ) => {
-    console.log("interviewoverview", interviewoverview);
-    // try {
-    //   setIsLoading(true);
-    //   const totalTime = session?.endTime
-    //     ? Math.round(
-    //         (session.endTime.getTime() - session.startTime.getTime()) /
-    //           1000 /
-    //           60
-    //       )
-    //     : 0;
+    try {
+      setIsLoading(true);
+      const totalTime = damisession?.endTime
+        ? Math.round(
+            (damisession.endTime.getTime() - damisession.startTime.getTime()) /
+              1000 /
+              60
+          )
+        : 0;
 
-    //   let averageScore = 0;
-    //   let totalScore = 0;
-    //   let averageResponseTime = 0;
-    //   if (session?.questions) {
-    //     averageScore =
-    //       session?.questions.length > 0
-    //         ? Math.round(
-    //             session?.questions.reduce((sum, q) => sum + q.score, 0) /
-    //               session?.questions.length
-    //           )
-    //         : 0;
-    //     totalScore =
-    //       session?.questions.length > 0
-    //         ? Math.round(
-    //             session?.questions.reduce((sum, q) => sum + q.score, 0)
-    //           )
-    //         : 0;
+      let averageScore = 0;
+      let totalScore = 0;
+      let averageResponseTime = 0;
+      if (damisession?.questions) {
+        averageScore =
+          damisession?.questions.length > 0
+            ? Math.round(
+                damisession?.questions.reduce(
+                  (sum: any, q: { score: any }) => sum + q.score,
+                  0
+                ) / damisession?.questions.length
+              )
+            : 0;
+        totalScore =
+          damisession?.questions.length > 0
+            ? Math.round(
+                damisession?.questions.reduce((sum, q) => sum + q.score, 0)
+              )
+            : 0;
 
-    //     averageResponseTime =
-    //       session?.questions.length > 0
-    //         ? Math.round(
-    //             session?.questions.reduce((sum, q) => sum + q.responseTime, 0) /
-    //               session?.questions.length
-    //           )
-    //         : 0;
-    //   }
-    //   const gradeInfo = getGrade(averageScore);
-    //   let newQuestions: any[] = [];
-    //   physicsQuestions.map((ques: any) => {
-    //     let question = { ...ques };
-    //     let findquesResp = session?.questions?.find(
-    //       (item) => item.question === ques?.question
-    //     );
-    //     newQuestions.push({
-    //       questionId: question?.id,
-    //       studentId: candidateId,
-    //       answer: findquesResp?.userAnswer ?? "",
-    //       aiEvaluation: findquesResp?.aiEvaluation ?? "",
-    //       score: findquesResp?.score ?? 0,
-    //       responseTime: findquesResp?.responseTime ?? 0,
-    //     });
-    //   });
-    //   // setIsModalLoading(true);
-    //   const response = await axios.post(
-    //     `${
-    //       import.meta.env.VITE_AIINTERVIEW_API_KEY
-    //     }/jobposts/update-candidate-byid`,
-    //     {
-    //       candidateId: candidateId,
-    //       data: {
-    //         interviewVideoLink: videolink ?? "",
-    //         status: "completed",
-    //         interviewDate: new Date(),
-    //         hasRecording: videolink ? true : false,
-    //         questions: newQuestions,
-    //         attemptedQuestions: session?.questions?.length ?? 0,
-    //         overallScore: averageScore,
-    //         totalScore: totalScore,
-    //         grade: gradeInfo?.grade,
-    //         duration: totalTime,
-    //         averageResponseTime: averageResponseTime,
-    //       },
-    //     },
-    //     {
-    //       headers: {
-    //         "Content-Type": "application/json",
-    //       },
-    //     }
-    //   );
-    //   if (response.data) {
-    //   // You can handle the response here (e.g., save data, show a message, etc.)
-    setIsLoading(false);
-    //     console.log("update candidate details response:", response.data);
-    //   } else {
-    //     setErrorText(
-    //       "Sorry, please try again with different email or contact to admin"
-    //     );
-    //     setIsLoading(false);
-    //   }
-    // } catch (error: any) {
-    //   setIsLoading(false);
-    //   // Handle error (show error message, etc.)
-    //   console.error("Error joining job link:", error);
-    //   setErrorText(
-    //     "Sorry, please try again with different email or contact to admin"
-    //   );
-    // }
+        averageResponseTime =
+          damisession?.questions.length > 0
+            ? Math.round(
+                damisession?.questions.reduce(
+                  (sum, q) => sum + q.responseTime,
+                  0
+                ) / damisession?.questions.length
+              )
+            : 0;
+      }
+      const gradeInfo = getGrade(averageScore);
+      let newQuestions: any[] = [];
+      physicsQuestions.map((ques: any) => {
+        let question = { ...ques };
+        let findquesResp = session?.questions?.find(
+          (item) => item.question === ques?.question
+        );
+        newQuestions.push({
+          questionId: question?.id,
+          studentId: candidateId,
+          answer: findquesResp?.userAnswer ?? "",
+          aiEvaluation: findquesResp?.aiEvaluation ?? "",
+          score: findquesResp?.score ?? 0,
+          responseTime: findquesResp?.responseTime ?? 0,
+        });
+      });
+      let damiscores = {
+        communication:
+          interviewoverview?.performanceBreakdown?.communicationSkills
+            ?.overallAveragePercentage ?? 0,
+        technical:
+          interviewoverview?.performanceBreakdown?.technicalKnowledge
+            ?.overallAveragePercentage ?? 0,
+        problemSolving:
+          interviewoverview?.performanceBreakdown?.problemSolving
+            ?.overallAveragePercentage ?? 0,
+        leadership:
+          interviewoverview?.performanceBreakdown?.leadershipPotential
+            ?.overallAveragePercentage ?? 0,
+        bodyLanguage:
+          interviewoverview?.performanceBreakdown?.body_language
+            ?.overallAveragePercentage ?? 0,
+        confidence:
+          interviewoverview?.performanceBreakdown?.confidenceLevel
+            ?.overallAveragePercentage ?? 0,
+      };
+      // setIsModalLoading(true);
+      const response = await axios.post(
+        `${
+          import.meta.env.VITE_AIINTERVIEW_API_KEY
+        }/jobposts/update-candidate-byid`,
+        {
+          candidateId: candidateId,
+          data: {
+            interviewVideoLink: videolink ?? "",
+            status: "completed",
+            interviewDate: new Date(),
+            hasRecording: videolink ? true : false,
+            questions: newQuestions,
+            attemptedQuestions: session?.questions?.length ?? 0,
+            overallScore: averageScore,
+            totalScore: totalScore,
+            grade: gradeInfo?.grade,
+            duration: totalTime,
+            scores: damiscores,
+            averageResponseTime: averageResponseTime,
+            ...interviewoverview,
+          },
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      if (response.data) {
+        // You can handle the response here (e.g., save data, show a message, etc.)
+        setIsLoading(false);
+        console.log("update candidate details response:", response.data);
+      } else {
+        setErrorText(
+          "Sorry, please try again with different email or contact to admin"
+        );
+        setIsLoading(false);
+      }
+    } catch (error: any) {
+      setIsLoading(false);
+      // Handle error (show error message, etc.)
+      console.error("Error joining job link:", error);
+      setErrorText(
+        "Sorry, please try again with different email or contact to admin"
+      );
+    }
   };
 
   // End interview
@@ -639,20 +674,26 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
     stopListening();
     stopAudio();
     let data = await stopRecording();
-    setCurrentQuestion("");
-    if (session?.questions && session?.questions?.length > 0) {
-      let interviewoverview = await getInterviewOverviewWithAI(
-        physicsQuestions,
-        session?.questions ?? []
-      );
-      console.log("interviewoverview", interviewoverview);
-      if (data?.blob) {
-        uploadinterviewvideo(data.blob, { ...interviewoverview });
-      } else {
-        updateCandidateDetails(null, { ...interviewoverview });
-      }
-    }
     if (session) {
+      let damisession: InterviewSession = {
+        ...session,
+        endTime: new Date(),
+        status: "completed",
+      };
+      setCurrentQuestion("");
+      if (session?.questions && session?.questions?.length > 0) {
+        let interviewoverview = await getInterviewOverviewWithAI(
+          physicsQuestions,
+          session?.questions ?? []
+        );
+        if (data?.blob) {
+          uploadinterviewvideo(data.blob, damisession, {
+            ...interviewoverview,
+          });
+        } else {
+          updateCandidateDetails(null, damisession, { ...interviewoverview });
+        }
+      }
       setSession({
         ...session,
         endTime: new Date(),
