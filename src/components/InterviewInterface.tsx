@@ -787,17 +787,17 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
 
   // Debug info
   useEffect(() => {
-    // console.log("🔧 System Status:", {
-    //   speechSupported: isSupported,
-    //   microphoneReady,
-    //   isListening,
-    //   waitingForAnswer,
-    //   isProcessing,
-    //   audioPlaying,
-    //   voiceActivity,
-    //   isSpeaking,
-    //   transcriptLength: transcript.length,
-    // });
+    console.log("🔧 System Status:", {
+      speechSupported: isSupported,
+      microphoneReady,
+      isListening,
+      waitingForAnswer,
+      isProcessing,
+      audioPlaying,
+      voiceActivity,
+      isSpeaking,
+      transcriptLength: transcript.length,
+    });
   }, [
     isSupported,
     microphoneReady,
