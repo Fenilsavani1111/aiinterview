@@ -443,8 +443,8 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
   const handleQuestionTimeout = useCallback(() => {
     if (session && waitingForAnswer) {
       console.log("⏰ Question timeout");
-      setWaitingForAnswer(false);
-      stopListening();
+      // setWaitingForAnswer(false);
+      // stopListening();
 
       const timeoutResponse: QuestionResponse = {
         question: currentQuestion,
@@ -462,10 +462,10 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         score: session.score + (transcript ? 2 : 0),
       };
 
-      setSession(updatedSession);
+      // setSession(updatedSession);
 
       setTimeout(() => {
-        askNextQuestion(updatedSession);
+        // askNextQuestion(updatedSession);
       }, 1000);
     }
   }, [
