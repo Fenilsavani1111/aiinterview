@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react";
 import { Camera, Mic, Brain, Clock, Award } from "lucide-react";
 import { CameraView } from "./CameraView";
 import { InterviewControls } from "./InterviewControls";
@@ -71,6 +77,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
   const [audioPlaying, setAudioPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
+  const [isnotSpeakingForSec, setIsnotSpeakingForSec] = useState(false);
 
   const questionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const interviewTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -104,6 +111,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
     stopRecording,
     error: cameraError,
   } = useCamera();
+
   // Test microphone access on component mount
   useEffect(() => {
     const testMicrophone = async () => {
@@ -380,7 +388,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
           console.log("➡️ Moving to next question...");
           setTimeout(() => {
             askNextQuestion(updatedSession);
-          }, 2000);
+          }, 4000);
         } catch (error) {
           console.error("💥 Error playing feedback:", error);
           setTimeout(() => {
@@ -532,7 +540,6 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
     }
   };
 
-  console.log("session", session);
   // update candidate interview
   const updateCandidateDetails = async (
     videolink: string | null,
@@ -681,10 +688,10 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         status: "completed",
       };
       setCurrentQuestion("");
-      if (session?.questions && session?.questions?.length > 0) {
+      if (damisession?.questions && damisession?.questions?.length > 0) {
         let interviewoverview = await getInterviewOverviewWithAI(
           physicsQuestions,
-          session?.questions ?? []
+          damisession?.questions ?? []
         );
         if (data?.blob) {
           uploadinterviewvideo(data.blob, damisession, {
@@ -695,9 +702,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         }
       }
       setSession({
-        ...session,
-        endTime: new Date(),
-        status: "completed",
+        ...damisession,
       });
     }
 
@@ -713,6 +718,78 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
   }, [session, stopListening, stopAudio, stopRecording]);
 
   // Simplified transcript processing
+  // useEffect(() => {
+  //   if (transcript && waitingForAnswer && !isProcessing && !audioPlaying) {
+  //     const trimmedTranscript = transcript.trim();
+  //     const wordCount = trimmedTranscript.split(/\s+/).length;
+
+  //     console.log("📝 Transcript update:", {
+  //       length: trimmedTranscript.length,
+  //       wordCount,
+  //       confidence,
+  //       isSpeaking,
+  //       voiceActivity,
+  //     });
+
+  //     // Process if we have sufficient content
+  //     if (trimmedTranscript.length >= 10 && wordCount >= 3) {
+  //       // Use VAD as a hint, but don't block on it
+  //       const shouldWaitForVAD = isSpeaking && voiceActivity > 10;
+
+  //       if (!shouldWaitForVAD) {
+  //         console.log("✅ Processing answer (VAD clear or not critical)");
+
+  //         if (processingTimeoutRef.current) {
+  //           clearTimeout(processingTimeoutRef.current);
+  //         }
+
+  //         processingTimeoutRef.current = setTimeout(() => {
+  //           let newtrimmedTranscript = transcript.trim();
+  //           // handleAnswer(newtrimmedTranscript);
+  //           // processTranscript(trimmedTranscript);
+  //         }, 2000); // Shorter delay
+  //       } else {
+  //         console.log("🗣️ VAD suggests user still speaking, waiting a bit...");
+  //       }
+  //     }
+  //   }
+  // }, [
+  //   transcript,
+  //   waitingForAnswer,
+  //   isProcessing,
+  //   audioPlaying,
+  //   handleAnswer,
+  //   confidence,
+  //   isSpeaking,
+  //   voiceActivity,
+  // ]);
+
+  // // detect silence after user stops speaking
+  // useEffect(() => {
+  //   if (!isSpeaking && transcript?.length > 0) {
+  //     console.log("🤐 User stopped speaking, starting silence timer...");
+
+  //     let silenceStart = Date.now();
+  //     const interval = setInterval(() => {
+  //       if (voiceActivity < 10) {
+  //         if (Date.now() - silenceStart >= 5000) {
+  //           console.log(
+  //             "✅ 5 seconds of silence detected, processing answer..."
+  //           );
+  //           clearInterval(interval);
+  //           handleAnswer(transcript.trim());
+  //         }
+  //       } else {
+  //         // reset timer if user speaks again
+  //         silenceStart = Date.now();
+  //       }
+  //     }, 200);
+
+  //     return () => clearInterval(interval); // cleanup on effect re-run
+  //   }
+  // }, [isSpeaking, voiceActivity, transcript, handleAnswer]);
+
+  // detect silence after user stops speaking
   useEffect(() => {
     if (transcript && waitingForAnswer && !isProcessing && !audioPlaying) {
       const trimmedTranscript = transcript.trim();
@@ -726,23 +803,44 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         voiceActivity,
       });
 
-      // Process if we have sufficient content
+      // Only consider if the transcript is meaningful
       if (trimmedTranscript.length >= 10 && wordCount >= 3) {
-        // Use VAD as a hint, but don't block on it
+        // VAD check (don’t block forever, just hint)
         const shouldWaitForVAD = isSpeaking && voiceActivity > 20;
 
         if (!shouldWaitForVAD) {
-          console.log("✅ Processing answer (VAD clear or not critical)");
+          console.log("✅ Processing candidate answer, waiting for silence...");
 
-          if (processingTimeoutRef.current) {
-            clearTimeout(processingTimeoutRef.current);
-          }
+          let silenceStart: number | null = null;
+          const interval = setInterval(() => {
+            if (voiceActivity < 20) {
+              if (!silenceStart) {
+                silenceStart = Date.now();
+              } else if (Date.now() - silenceStart >= 3000) {
+                console.log(
+                  "✅ 3 seconds of silence detected, processing answer..."
+                );
+                clearInterval(interval);
 
-          processingTimeoutRef.current = setTimeout(() => {
-            handleAnswer(trimmedTranscript);
-          }, 1500); // Shorter delay
+                if (processingTimeoutRef.current) {
+                  clearTimeout(processingTimeoutRef.current);
+                }
+
+                // Short safety delay before processing
+                processingTimeoutRef.current = setTimeout(() => {
+                  handleAnswer(trimmedTranscript);
+                }, 500);
+              }
+            } else {
+              // Reset silence timer if speech resumes
+              silenceStart = null;
+            }
+          }, 200);
+
+          // Cleanup if effect reruns (new transcript, etc.)
+          return () => clearInterval(interval);
         } else {
-          console.log("🗣️ VAD suggests user still speaking, waiting a bit...");
+          console.log("🗣️ VAD suggests user still speaking, waiting...");
         }
       }
     }
@@ -786,29 +884,29 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
   }, [stopCamera, resetTranscript]);
 
   // Debug info
-  useEffect(() => {
-    console.log("🔧 System Status:", {
-      speechSupported: isSupported,
-      microphoneReady,
-      isListening,
-      waitingForAnswer,
-      isProcessing,
-      audioPlaying,
-      voiceActivity,
-      isSpeaking,
-      transcriptLength: transcript.length,
-    });
-  }, [
-    isSupported,
-    microphoneReady,
-    isListening,
-    waitingForAnswer,
-    isProcessing,
-    audioPlaying,
-    voiceActivity,
-    isSpeaking,
-    transcript,
-  ]);
+  // useEffect(() => {
+  //   console.log("🔧 System Status:", {
+  //     speechSupported: isSupported,
+  //     microphoneReady,
+  //     isListening,
+  //     waitingForAnswer,
+  //     isProcessing,
+  //     audioPlaying,
+  //     voiceActivity,
+  //     isSpeaking,
+  //     transcriptLength: transcript.length,
+  //   });
+  // }, [
+  //   isSupported,
+  //   microphoneReady,
+  //   isListening,
+  //   waitingForAnswer,
+  //   isProcessing,
+  //   audioPlaying,
+  //   voiceActivity,
+  //   isSpeaking,
+  //   transcript,
+  // ]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-blue-50 to-purple-100">

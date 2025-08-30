@@ -243,10 +243,12 @@ const NameEmailModal: React.FC<Props> = ({
                   </svg>
                 </div>
                 <h2 className="text-xl font-bold text-white mb-2">
-                  You are not eligible for {jobData?.jobTitle} Interview.
+                  Unfortunately, you are not eligible for the{" "}
+                  {jobData?.jobTitle} interview at this time.
                 </h2>
                 <p className="text-gray-300 text-lg leading-relaxed">
-                  You resume is match only {cvMatch ?? 40}% with job.
+                  Your resume matches only {cvMatch ?? 40}% of the job
+                  requirements at this time.
                 </p>
               </div>
             </div>
@@ -297,8 +299,8 @@ const NameEmailModal: React.FC<Props> = ({
                         {fileName}
                       </span>
                       <p className="text-green-700 text-base font-semibold text-center mt-2">
-                        🎉 Congratulations! you have match {cvMatch}% with job
-                        posts
+                        🎉 Congratulations! You’ve achieved a {cvMatch}% match
+                        with the job posting.
                       </p>
                     </>
                   ) : (
