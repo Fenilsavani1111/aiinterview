@@ -274,27 +274,26 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
           console.log("🎤 Beginning speech recognition...");
           startListening();
 
-          // Set timeout for question (45 seconds)
-          questionTimeoutRef.current = setTimeout(() => {
-            console.log("⏰ Question timeout reached");
-            handleQuestionTimeout();
-          }, 45000);
+          // // Set timeout for question (45 seconds)
+          // questionTimeoutRef.current = setTimeout(() => {
+          //   console.log("⏰ Question timeout reached");
+          //   handleQuestionTimeout();
+          // }, 45000);
         }, 1000);
       } catch (error) {
         console.error("💥 Error with question:", error);
-        setAudioPlaying(false);
+        // setAudioPlaying(false);
 
         // Continue without audio
         setTimeout(() => {
           console.log("🎤 Starting listening (no audio)...");
-          setWaitingForAnswer(true);
+          // setWaitingForAnswer(true);
 
           setTimeout(() => {
-            startListening();
-
-            questionTimeoutRef.current = setTimeout(() => {
-              handleQuestionTimeout();
-            }, 45000);
+            // // startListening();
+            // questionTimeoutRef.current = setTimeout(() => {
+            //   handleQuestionTimeout();
+            // }, 45000);
           }, 1000);
         }, 2000);
       }
@@ -521,6 +520,12 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
                 },
               }
             );
+          } else {
+            setIsLoading(false);
+            setErrorText(
+              "Sorry, please try again with different email or contact to admin"
+            );
+            console.log("python api", behavioraldata);
           }
         } catch (error) {
           setIsLoading(false);
