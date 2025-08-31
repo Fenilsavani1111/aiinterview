@@ -325,7 +325,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
       }
 
       // Check VAD if available, but don't block on it
-      if (isSpeaking && voiceActivity > 20) {
+      if (isSpeaking && voiceActivity > 30) {
         console.log("🗣️ User still speaking (VAD), waiting...");
         return;
       }
@@ -811,17 +811,17 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
       // Only consider if the transcript is meaningful
       if (trimmedTranscript.length >= 10 && wordCount >= 3) {
         // VAD check (don’t block forever, just hint)
-        const shouldWaitForVAD = isSpeaking && voiceActivity > 20;
+        const shouldWaitForVAD = isSpeaking && voiceActivity > 30;
 
         if (!shouldWaitForVAD) {
           console.log("✅ Processing candidate answer, waiting for silence...");
 
           let silenceStart: number | null = null;
           const interval = setInterval(() => {
-            if (voiceActivity < 20) {
+            if (voiceActivity < 30) {
               if (!silenceStart) {
                 silenceStart = Date.now();
-              } else if (Date.now() - silenceStart >= 3000) {
+              } else if (Date.now() - silenceStart >= 2000) {
                 console.log(
                   "✅ 3 seconds of silence detected, processing answer..."
                 );
