@@ -7,6 +7,7 @@ import * as pdfjsLib from "pdfjs-dist";
 import pdfjsWorker from "pdfjs-dist/build/pdf.worker.min?url";
 import { getCvMatchWithJD, getDataFromResumePdf } from "../services/apiService";
 import { InterviewQuestion } from "./InterviewInterface";
+import mammoth from "mammoth";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
@@ -110,19 +111,34 @@ const NameEmailModal: React.FC<Props> = ({
     try {
       setIsResumeUploading(true);
       if (jobData) {
+        let fileContent = "";
         const arrayBuffer = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({
-          data: arrayBuffer,
-        }).promise;
-        let fullText = "";
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const content = await page.getTextContent();
-          fullText +=
-            content.items
-              .map((item) => ("str" in item ? item.str : ""))
-              .join(" ") + "\n";
+        if (file.type.includes("pdf")) {
+          const pdf = await pdfjsLib.getDocument({
+            data: arrayBuffer,
+          }).promise;
+          let fullText = "";
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            fullText +=
+              content.items
+                .map((item) => ("str" in item ? item.str : ""))
+                .join(" ") + "\n";
+          }
+          fullText = fileContent;
+        } else if (
+          file.type.includes("word") ||
+          file.type.includes("document") ||
+          file.type.includes("docx") ||
+          file.type.includes("doc")
+        ) {
+          const result = await mammoth.extractRawText({ arrayBuffer });
+          fileContent = `📋 Extracted Information:\n${result.value}`;
+        } else {
+          fileContent = `Unsupported file type`;
         }
+
         // check resume parser (compare jobpost and resume) and get popup fields form resume
         let cvparserdata = await getCvMatchWithJD(
           {
@@ -141,7 +157,7 @@ const NameEmailModal: React.FC<Props> = ({
             skills: jobData?.skills ?? [],
             questions: [],
           },
-          fullText
+          fileContent
         );
         let resumedata = cvparserdata?.job_data;
         let matchData = cvparserdata?.match;
