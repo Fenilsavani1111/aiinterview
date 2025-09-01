@@ -274,6 +274,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
           aiEvaluation: findquesResp?.aiEvaluation ?? "",
           score: findquesResp?.score ?? 0,
           responseTime: findquesResp?.responseTime ?? 0,
+          endTime: findquesResp?.endTime,
         });
       });
       let damiscores = {
