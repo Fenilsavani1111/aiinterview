@@ -5,7 +5,6 @@ import { InterviewSession } from "./InterviewInterface";
 
 interface InterviewSummaryProps {
   session: InterviewSession;
-  onRestart: () => void;
   isLoading?: boolean;
   errorText?: string | null;
 }
@@ -26,7 +25,6 @@ export const getGrade = (score: number) => {
 
 export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
   session,
-  onRestart,
   isLoading,
   errorText,
 }) => {
