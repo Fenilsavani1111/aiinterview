@@ -626,8 +626,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
       // setAudioPlaying(false);
       stopListening();
       stopAudio();
-      stopRecording();
-      let data: any = {};
+      let data = await stopRecording();
       if (updatedSession) {
         let damisession: InterviewSession = {
           ...updatedSession,
