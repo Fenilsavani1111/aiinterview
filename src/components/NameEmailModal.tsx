@@ -126,7 +126,7 @@ const NameEmailModal: React.FC<Props> = ({
                 .map((item) => ("str" in item ? item.str : ""))
                 .join(" ") + "\n";
           }
-          fullText = fileContent;
+          fileContent = fullText;
         } else if (
           file.type.includes("word") ||
           file.type.includes("document") ||
@@ -138,7 +138,6 @@ const NameEmailModal: React.FC<Props> = ({
         } else {
           fileContent = `Unsupported file type`;
         }
-
         // check resume parser (compare jobpost and resume) and get popup fields form resume
         let cvparserdata = await getCvMatchWithJD(
           {
