@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
-import { Plus, Trash2, Upload } from "lucide-react";
+import { Brain, Camera, Plus, Trash2, Upload } from "lucide-react";
 import axios from "axios";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfjsWorker from "pdfjs-dist/build/pdf.worker.min?url";
@@ -54,6 +54,7 @@ const NameEmailModal: React.FC<Props> = ({
   modalError,
   jobData,
 }) => {
+  const [readyForInterview, setReadyForInterview] = useState(false);
   const [fileName, setFileName] = useState("");
   const [isResumeUploading, setIsResumeUploading] = useState(false);
   const [cvMatch, setCvMatch] = useState<number>(-1);
@@ -237,219 +238,284 @@ const NameEmailModal: React.FC<Props> = ({
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900 bg-opacity-95">
-      {cvMatch >= 0 && cvMatch < 60 ? (
-        <div className="fixed inset-0 flex overflow-y-auto flex-grow items-center justify-center bg-gray-900 z-50">
-          <div className="max-h-[90vh] w-full max-w-md">
-            <div className="bg-gray-800 p-8 rounded-2xl shadow-2xl w-11/12 max-w-md border border-gray-700 text-center">
-              <div className="mb-6">
-                <div className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg
-                    className="w-8 h-8 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
-                    />
-                  </svg>
+      {readyForInterview ? (
+        <>
+          {cvMatch >= 0 && cvMatch < 60 ? (
+            <div className="fixed inset-0 flex overflow-y-auto flex-grow items-center justify-center bg-gray-900 z-50">
+              <div className="max-h-[90vh] w-full max-w-md">
+                <div className="bg-gray-800 p-8 rounded-2xl shadow-2xl w-11/12 max-w-md border border-gray-700 text-center">
+                  <div className="mb-6">
+                    <div className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <svg
+                        className="w-8 h-8 text-white"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                        />
+                      </svg>
+                    </div>
+                    <h2 className="text-xl font-bold text-white mb-2">
+                      Unfortunately, you are not eligible for the{" "}
+                      {jobData?.jobTitle} interview at this time.
+                    </h2>
+                    <p className="text-gray-300 text-lg leading-relaxed">
+                      Your resume matches only {cvMatch ?? 40}% of the job
+                      requirements at this time.
+                    </p>
+                  </div>
                 </div>
-                <h2 className="text-xl font-bold text-white mb-2">
-                  Unfortunately, you are not eligible for the{" "}
-                  {jobData?.jobTitle} interview at this time.
-                </h2>
-                <p className="text-gray-300 text-lg leading-relaxed">
-                  Your resume matches only {cvMatch ?? 40}% of the job
-                  requirements at this time.
-                </p>
               </div>
             </div>
-          </div>
-        </div>
-      ) : (
-        <></>
-      )}
-      <div className="w-full max-w-md text-center my-10">
-        <form onSubmit={handleSubmit}>
-          <div className="p-8 bg-gray-900 rounded-2xl shadow-sm shadow-gray-700 flex flex-col">
-            <h2 className="text-2xl font-extrabold text-white text-center tracking-wide mb-6">
-              Enter Your Details
-            </h2>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              <input
-                className="border border-gray-700 bg-gray-800 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-lg p-3 w-full transition-all duration-200 outline-none"
-                type="text"
-                placeholder="Name"
-                name="name"
-                value={values.name}
-                onChange={handleChange}
-              />
-              <input
-                className="border border-gray-700 bg-gray-800 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-lg p-3 w-full transition-all duration-200 outline-none"
-                type="email"
-                name="email"
-                placeholder="Email"
-                value={values.email}
-                onChange={handleChange}
-              />
-              <div className="lg:col-span-2">
-                <div className="w-full flex flex-col justify-start">
-                  <label
-                    htmlFor="file-upload"
-                    className="w-max flex items-center space-x-2 cursor-pointer text-blue-600 hover:text-blue-700 text-sm"
-                  >
-                    <Upload className="h-4 w-4" />
-                    <span>Upload Resume</span>
-                  </label>
-                  {isResumeUploading ? (
-                    <span className="text-gray-400 mt-2 text-sm text-left">
-                      Resume Uploading...
-                    </span>
-                  ) : fileName?.length > 0 ? (
-                    <>
-                      <span className="text-gray-400 mt-2 text-sm text-left">
-                        {fileName}
-                      </span>
-                      <p className="text-green-700 text-base font-semibold text-center mt-2">
-                        🎉 Congratulations! You’ve achieved a {cvMatch}% match
-                        with the job posting.
-                      </p>
-                    </>
-                  ) : (
-                    <></>
-                  )}
+          ) : (
+            <></>
+          )}
+          <div className="w-full max-w-md text-center my-10">
+            <form onSubmit={handleSubmit}>
+              <div className="p-8 bg-gray-900 rounded-2xl shadow-sm shadow-gray-700 flex flex-col">
+                <h2 className="text-2xl font-extrabold text-white text-center tracking-wide mb-6">
+                  Enter Your Details
+                </h2>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                   <input
-                    id="file-upload"
-                    type="file"
-                    accept=".pdf,application/pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                    className="hidden"
-                    onChange={async (e) => {
-                      const file: any = e.target.files?.[0];
-                      setFileName(file?.name ?? "");
-                      uploadResumeFile(file);
-                    }}
+                    className="border border-gray-700 bg-gray-800 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-lg p-3 w-full transition-all duration-200 outline-none"
+                    type="text"
+                    placeholder="Name"
+                    name="name"
+                    value={values.name}
+                    onChange={handleChange}
                   />
-                </div>
-              </div>
-              <input
-                className="border border-gray-700 bg-gray-800 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-lg p-3 w-full transition-all duration-200 outline-none"
-                type="text"
-                name="mobile"
-                placeholder="Phone Number"
-                value={values.mobile}
-                onChange={handleChange}
-              />
-              <div className="">
-                <select
-                  value={values.experienceLevel}
-                  onChange={(e) =>
-                    setFieldValue("experienceLevel", e.target.value)
-                  }
-                  className="w-full px-4 py-3 border border-gray-700 bg-gray-800 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Select experience level</option>
-                  <option value="entry">Entry Level (0-1 years)</option>
-                  <option value="junior">Junior (2-3 years)</option>
-                  <option value="mid">Mid Level (4-6 years)</option>
-                  <option value="senior">Senior (7-10 years)</option>
-                  <option value="lead">Lead/Manager (10+ years)</option>
-                </select>
-              </div>
-              <input
-                className="border border-gray-700 bg-gray-800 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-lg p-3 w-full transition-all duration-200 outline-none"
-                type="text"
-                name="designation"
-                placeholder="Designation"
-                value={values.designation}
-                onChange={handleChange}
-              />
-              <input
-                className="border border-gray-700 bg-gray-800 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-lg p-3 w-full transition-all duration-200 outline-none"
-                type="text"
-                name="location"
-                placeholder="Location"
-                value={values.location}
-                onChange={handleChange}
-              />
-              <div className="mb-4 lg:col-span-2">
-                <label className="block font-medium text-gray-400 mb-4">
-                  Skills
-                </label>
-                {values.skills.map((skill, index) => (
-                  <div key={index} className="flex items-center space-x-2 mb-2">
-                    <input
-                      type="text"
-                      value={skill}
-                      onChange={(e) => {
-                        let damiskills = [...(values.skills ?? [])];
-                        damiskills[index] = e.target.value;
-                        setValues({
-                          ...values,
-                          skills: damiskills,
-                        });
-                      }}
-                      className="flex-1 px-4 py-2 border border-gray-700 bg-gray-800 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Enter skill"
-                    />
+                  <input
+                    className="border border-gray-700 bg-gray-800 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-lg p-3 w-full transition-all duration-200 outline-none"
+                    type="email"
+                    name="email"
+                    placeholder="Email"
+                    value={values.email}
+                    onChange={handleChange}
+                  />
+                  <div className="lg:col-span-2">
+                    <div className="w-full flex flex-col justify-start">
+                      <label
+                        htmlFor="file-upload"
+                        className="w-max flex items-center space-x-2 cursor-pointer text-blue-600 hover:text-blue-700 text-sm"
+                      >
+                        <Upload className="h-4 w-4" />
+                        <span>Upload Resume</span>
+                      </label>
+                      {isResumeUploading ? (
+                        <span className="text-gray-400 mt-2 text-sm text-left">
+                          Resume Uploading...
+                        </span>
+                      ) : fileName?.length > 0 ? (
+                        <>
+                          <span className="text-gray-400 mt-2 text-sm text-left">
+                            {fileName}
+                          </span>
+                          <p className="text-green-700 text-base font-semibold text-center mt-2">
+                            🎉 Congratulations! You’ve achieved a {cvMatch}%
+                            match with the job posting.
+                          </p>
+                        </>
+                      ) : (
+                        <></>
+                      )}
+                      <input
+                        id="file-upload"
+                        type="file"
+                        accept=".pdf,application/pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file: any = e.target.files?.[0];
+                          setFileName(file?.name ?? "");
+                          uploadResumeFile(file);
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <input
+                    className="border border-gray-700 bg-gray-800 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-lg p-3 w-full transition-all duration-200 outline-none"
+                    type="text"
+                    name="mobile"
+                    placeholder="Phone Number"
+                    value={values.mobile}
+                    onChange={handleChange}
+                  />
+                  <div className="">
+                    <select
+                      value={values.experienceLevel}
+                      onChange={(e) =>
+                        setFieldValue("experienceLevel", e.target.value)
+                      }
+                      className="w-full px-4 py-3 border border-gray-700 bg-gray-800 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="">Select experience level</option>
+                      <option value="entry">Entry Level (0-1 years)</option>
+                      <option value="junior">Junior (2-3 years)</option>
+                      <option value="mid">Mid Level (4-6 years)</option>
+                      <option value="senior">Senior (7-10 years)</option>
+                      <option value="lead">Lead/Manager (10+ years)</option>
+                    </select>
+                  </div>
+                  <input
+                    className="border border-gray-700 bg-gray-800 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-lg p-3 w-full transition-all duration-200 outline-none"
+                    type="text"
+                    name="designation"
+                    placeholder="Designation"
+                    value={values.designation}
+                    onChange={handleChange}
+                  />
+                  <input
+                    className="border border-gray-700 bg-gray-800 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-lg p-3 w-full transition-all duration-200 outline-none"
+                    type="text"
+                    name="location"
+                    placeholder="Location"
+                    value={values.location}
+                    onChange={handleChange}
+                  />
+                  <div className="mb-4 lg:col-span-2">
+                    <label className="block font-medium text-gray-400 mb-4">
+                      Skills
+                    </label>
+                    {values.skills.map((skill, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center space-x-2 mb-2"
+                      >
+                        <input
+                          type="text"
+                          value={skill}
+                          onChange={(e) => {
+                            let damiskills = [...(values.skills ?? [])];
+                            damiskills[index] = e.target.value;
+                            setValues({
+                              ...values,
+                              skills: damiskills,
+                            });
+                          }}
+                          className="flex-1 px-4 py-2 border border-gray-700 bg-gray-800 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Enter skill"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            let damiskills = values.skills.filter(
+                              (_, i) => i !== index
+                            );
+                            setValues({
+                              ...values,
+                              skills: damiskills,
+                            });
+                          }}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
                     <button
                       type="button"
                       onClick={() => {
-                        let damiskills = values.skills.filter(
-                          (_, i) => i !== index
-                        );
                         setValues({
                           ...values,
-                          skills: damiskills,
+                          skills: [...(values.skills ?? []), ""],
                         });
                       }}
-                      className="text-red-600 hover:text-red-700"
+                      className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 text-sm"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Plus className="h-4 w-4" />
+                      <span>Add Skill</span>
                     </button>
                   </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setValues({
-                      ...values,
-                      skills: [...(values.skills ?? []), ""],
-                    });
-                  }}
-                  className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 text-sm"
-                >
-                  <Plus className="h-4 w-4" />
-                  <span>Add Skill</span>
-                </button>
+                </div>
+                {Object.values(touched)?.length > 0 &&
+                Object.values(errors)?.length > 0 ? (
+                  <p className="text-red-600 mb-2">
+                    {Object.values(errors)[0]}
+                  </p>
+                ) : modalError ? (
+                  <p className="text-red-600 mb-2">{modalError}</p>
+                ) : (
+                  <></>
+                )}
+                {isLoading ? (
+                  <div className="flex justify-center mt-4">
+                    <div className="h-6 w-6 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={isResumeUploading}
+                    className="mt-5 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg w-full transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-blue-900/30"
+                  >
+                    Submit
+                  </button>
+                )}
+              </div>
+            </form>
+          </div>
+        </>
+      ) : (
+        <div className="w-full max-w-2xl my-10 bg-gray-800 p-8 rounded-2xl shadow-2xl border border-gray-700">
+          <div className="mb-6">
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl text-white">
+                <Brain className="w-8 h-8" />
+              </div>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent text-center">
+                {jobData?.jobTitle ?? "Physics"} Interview AI
+              </h1>
+              <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl text-white">
+                <Camera className="w-8 h-8" />
               </div>
             </div>
-            {Object.values(touched)?.length > 0 &&
-            Object.values(errors)?.length > 0 ? (
-              <p className="text-red-600 mb-2">{Object.values(errors)[0]}</p>
-            ) : modalError ? (
-              <p className="text-red-600 mb-2">{modalError}</p>
-            ) : (
-              <></>
-            )}
-            {isLoading ? (
-              <div className="flex justify-center mt-4">
-                <div className="h-6 w-6 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-              </div>
-            ) : (
+            <p className="text-gray-300 leading-relaxed">
+              {jobData?.jobDescription}
+            </p>
+            <h2 className="text-xl font-bold text-white mt-4 mb-2">
+              Requirements
+            </h2>
+            <ul className="text-gray-300 list-disc ml-4">
+              {jobData?.requirements.map((item: any, i) => (
+                <li key={i}>{item?.requirement ?? ""}</li>
+              ))}
+            </ul>
+            <h2 className="text-xl font-bold text-white mt-4 mb-2">
+              Responsibility
+            </h2>
+            <ul className="text-gray-300 list-disc ml-4">
+              {jobData?.responsibilities.map((item: any, i) => (
+                <li key={i}>{item?.responsibility ?? ""}</li>
+              ))}
+            </ul>
+            <h2 className="text-xl font-bold text-white mt-4 mb-2">
+              Required Skills
+            </h2>
+            <div className="flex flex-wrap gap-2 mt-1">
+              {jobData?.skills.map((item: any, index: number) => (
+                <span
+                  key={index}
+                  className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm"
+                >
+                  {item?.skill}
+                </span>
+              ))}
+            </div>
+            <div className="flex items-center justify-center gap-3 mb-4">
               <button
-                type="submit"
-                disabled={isResumeUploading}
+                onClick={() => setReadyForInterview(true)}
                 className="mt-5 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg w-full transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-blue-900/30"
               >
-                Submit
+                Ready For Interview
               </button>
-            )}
+            </div>
           </div>
-        </form>
-      </div>
+        </div>
+      )}
     </div>
   );
 };
