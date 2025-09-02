@@ -191,25 +191,21 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
             );
           } else {
             setIsLoading(false);
-            setErrorText(
-              "Sorry, please try again with different email or contact to admin"
-            );
+            setErrorText("Sorry, Unable to get behavioral analysis");
             console.log("python api", behavioraldata);
           }
         } catch (error) {
           setIsLoading(false);
-          setErrorText(
-            "Sorry, please try again with different email or contact to admin"
-          );
+          setErrorText("Sorry, Unable to get behavioral analysis");
           console.log("python api", error);
         }
       } else {
         setIsLoading(false);
-        setErrorText("Sorry, not able to upload interview view");
+        setErrorText("Sorry, Unable to upload interview view");
       }
     } catch (error) {
       console.error("Error uploading resume file:", error);
-      setErrorText("Sorry, not able to upload interview view");
+      setErrorText("Sorry, Unable to upload interview view");
       setIsLoading(false);
     }
   };
@@ -670,11 +666,13 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
               <Camera className="w-8 h-8" />
             </div>
           </div>
-          <p className="text-gray-600 text-lg max-w-3xl mx-auto">
-            🎤 <strong>Smart Voice Detection!</strong> AI interview that
-            understands when you're speaking. Answer questions naturally at your
-            own pace.
-          </p>
+          {session?.status !== "completed" && (
+            <p className="text-gray-600 text-lg max-w-3xl mx-auto">
+              🎤 <strong>Smart Voice Detection!</strong> AI interview that
+              understands when you're speaking. Answer questions naturally at
+              your own pace.
+            </p>
+          )}
         </div>
 
         {isLoading ? (
