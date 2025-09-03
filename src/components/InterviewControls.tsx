@@ -113,6 +113,7 @@ export const InterviewControls: React.FC<InterviewControlsProps> = ({
       )}
 
       <button
+        disabled={isPlayingAudio}
         onClick={() => onEndInterview(session)}
         className="w-full px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300"
       >

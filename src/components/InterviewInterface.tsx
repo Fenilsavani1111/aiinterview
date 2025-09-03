@@ -21,6 +21,7 @@ import {
 } from "../services/apiService";
 import { elevenLabsService } from "../services/elevenLabsService";
 import axios from "axios";
+import { JobPost } from "./NameEmailModal";
 
 export interface InterviewSession {
   id: string;
@@ -62,6 +63,69 @@ interface InterviewInterfaceProps {
   candidateId?: string | null;
 }
 
+export interface StudentInterviewAnswer {
+  id: string;
+  answer: string;
+  aiEvaluation: string;
+  score: number;
+  responseTime: number;
+  Question: InterviewQuestion;
+  start: number;
+  end: number;
+}
+
+export interface Candidate {
+  id: string;
+  jobPostId: string;
+  name: string;
+  email: string;
+  phone: string;
+  mobile?: string;
+  interviewVideoLink?: string;
+  appliedDate: any;
+  interviewDate: any;
+  duration: number;
+  status: "completed" | "inprogress" | "scheduled";
+  overallScore: number;
+  scores: {
+    communication: number;
+    technical: number;
+    problemSolving: number;
+    leadership: number;
+    bodyLanguage: number;
+    confidence: number;
+  };
+  experienceLevel: string;
+  skills: string[];
+  resumeUrl: string;
+  linkedinUrl: string;
+  recommendation: string;
+  notes: string;
+  hasRecording: boolean;
+  designation?: string;
+  location?: string;
+  attemptedQuestions: number;
+  JobPost?: JobPost;
+  StudentInterviewAnswer?: StudentInterviewAnswer[];
+  aiEvaluationSummary?: {
+    summary?: string;
+    keyStrengths?: string[];
+    areasOfGrowth?: string[];
+  };
+  performanceBreakdown?: any;
+  quickStats: any;
+  recommendations?: {
+    summary?: string;
+    recommendation?: string;
+  };
+  behavioral_analysis: any;
+  video_analysis_insights?: {
+    areas_for_improvement?: string[];
+    positive_indicators?: string[];
+    recommendations?: string[];
+  };
+}
+
 const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
   physicsQuestions,
   fetchQueData,
@@ -78,6 +142,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isProcessingResponse, setIsProcessingResponse] = useState(false);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
+  const [candidateData, setCandidateData] = useState<Candidate | null>(null);
   const isLastQuestion =
     session?.currentQuestionIndex === physicsQuestions.length - 1;
   const currentQuestion = physicsQuestions[session?.currentQuestionIndex ?? -1];
@@ -323,6 +388,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         }
       );
       if (response.data) {
+        setCandidateData(response.data?.candidate ?? null);
         // You can handle the response here (e.g., save data, show a message, etc.)
         setIsLoading(false);
         console.log("update candidate details response:", response.data);
@@ -787,6 +853,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
             session={session}
             isLoading={isLoading}
             errorText={errorText}
+            candidateData={candidateData}
           />
         ) : (
           /* Active Interview */
