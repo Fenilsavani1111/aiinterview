@@ -341,7 +341,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
       );
     }
   };
-  console.log(session);
+
   // Track which questions have had audio generated
   const [generatedAudioQuestions, setGeneratedAudioQuestions] = useState<
     Set<string>
@@ -776,7 +776,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
                   }
                   className="w-full px-8 py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold text-lg rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 >
-                  🎤 Start Smart Interview
+                  🎤 Start Interview
                 </button>
               </div>
             </div>
