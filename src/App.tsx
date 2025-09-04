@@ -250,6 +250,7 @@ const App: React.FC = () => {
                 physicsQuestions={interviewQuestions}
                 fetchQueData={fetchQueData}
                 candidateId={candidateId}
+                jobData={jobData}
               />
             )
           ) : (

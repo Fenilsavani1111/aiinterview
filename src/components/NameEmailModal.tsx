@@ -112,120 +112,81 @@ const NameEmailModal: React.FC<Props> = ({
     try {
       setIsResumeUploading(true);
       if (jobData) {
-        let fileContent = "";
-        const arrayBuffer = await file.arrayBuffer();
-        if (file.type.includes("pdf")) {
-          const pdf = await pdfjsLib.getDocument({
-            data: arrayBuffer,
-          }).promise;
-          let fullText = "";
-          for (let i = 1; i <= pdf.numPages; i++) {
-            const page = await pdf.getPage(i);
-            const content = await page.getTextContent();
-            fullText +=
-              content.items
-                .map((item) => ("str" in item ? item.str : ""))
-                .join(" ") + "\n";
-          }
-          fileContent = fullText;
-        } else if (
-          file.type.includes("word") ||
-          file.type.includes("document") ||
-          file.type.includes("docx") ||
-          file.type.includes("doc")
-        ) {
-          const result = await mammoth.extractRawText({ arrayBuffer });
-          fileContent = `📋 Extracted Information:\n${result.value}`;
-        } else {
-          fileContent = `Unsupported file type`;
-        }
-        // check resume parser (compare jobpost and resume) and get popup fields form resume
-        let cvparserdata = await getCvMatchWithJD(
-          {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append(
+          "jobData",
+          JSON.stringify({
             jobTitle: jobData?.jobTitle,
-            company: jobData?.company,
-            department: jobData?.department,
-            location: jobData?.location,
             jobType: jobData?.jobType,
+            location: jobData?.location,
+            company: jobData.company,
             experienceLevel: jobData?.experienceLevel,
+            department: jobData?.department,
             jobDescription: jobData?.jobDescription,
-            salaryMin: jobData?.salaryMin,
-            salaryMax: jobData?.salaryMax,
-            salaryCurrency: jobData?.salaryCurrency,
-            requirements: jobData?.requirements ?? [],
-            responsibilities: jobData?.responsibilities ?? [],
-            skills: jobData?.skills ?? [],
-            questions: [],
-          },
-          fileContent
+            requirements: jobData.requirements?.map(
+              (v: any) => v?.requirement ?? ""
+            ),
+            responsibilities: jobData.responsibilities?.map(
+              (v: any) => v?.responsibility ?? ""
+            ),
+            skills: jobData.skills?.map((v: any) => v?.skill ?? ""),
+          })
         );
-        let resumedata = cvparserdata?.job_data;
-        let matchData = cvparserdata?.match;
-        console.log("matchData", matchData);
-        if (matchData?.overallMatchPercentage >= 0) {
-          setCvMatch(matchData?.overallMatchPercentage ?? 0);
-          if (matchData?.overallMatchPercentage < 60)
-            setIsResumeUploading(false);
-          else {
-            let newskills = [];
-            if (values.skills?.length === 0) {
-              newskills = resumedata?.skills ?? [];
-            } else if (values.skills?.length === 1) {
-              newskills =
-                values.skills?.[0]?.length > 0
-                  ? [...values.skills]
-                  : resumedata?.skills ?? [];
-            } else if (values.skills?.length >= 2) {
-              newskills = resumedata?.skills ?? [];
-            }
-            setValues({
-              ...values,
-              name:
-                values.name?.length > 0 ? values.name : resumedata?.name ?? "",
-              email:
-                values.email?.length > 0
-                  ? values.email
-                  : resumedata?.email ?? "",
-              mobile:
-                values.mobile?.length > 0
-                  ? values.mobile
-                  : resumedata?.phone ?? "",
-              designation:
-                values.designation?.length > 0
-                  ? values.designation
-                  : resumedata?.designation ?? "",
-              experienceLevel:
-                values.experienceLevel?.length > 0
-                  ? values.experienceLevel
-                  : resumedata?.experienceLevel ?? "",
-              location:
-                values.location?.length > 0
-                  ? values.location
-                  : resumedata?.location ?? "",
-              skills: newskills,
-            });
-            //upload resume to cloud
-            const formData = new FormData();
-            formData.append("file", file);
-            formData.append("fileName", `${values.name}`);
-            const res = await axios.post(
-              `${
-                import.meta.env.VITE_AIINTERVIEW_API_KEY
-              }/jobposts/upload-resume`,
-              formData,
-              {
-                headers: { "Content-Type": "multipart/form-data" },
-              }
-            );
-            if (res.data) {
-              if (res.data?.file_url?.length > 0)
-                setFieldValue("resumeUrl", res?.data?.file_url);
-              setIsResumeUploading(false);
-            }
+        const res = await axios.post(
+          `${import.meta.env.VITE_AIINTERVIEW_API_KEY}/jobposts/resume-parser`,
+          formData,
+          {
+            headers: { "Content-Type": "multipart/form-data" },
           }
-        } else {
-          setCvMatch(-1);
-          setIsResumeUploading(false);
+        );
+        console.log(res.data);
+        if (res.data) {
+          let resumedata = res.data?.candidateInfo;
+          let experienceLevel =
+            resumedata?.experience <= 1
+              ? "entry"
+              : resumedata?.experience <= 3
+              ? "junior"
+              : resumedata?.experience <= 6
+              ? "mid"
+              : resumedata?.experience < 10
+              ? "senior"
+              : resumedata?.experience >= 10
+              ? "lead"
+              : "entry";
+          setValues({
+            ...values,
+            name:
+              values.name?.length > 0 ? values.name : resumedata?.name ?? "",
+            email:
+              values.email?.length > 0 ? values.email : resumedata?.email ?? "",
+            mobile:
+              values.mobile?.length > 0
+                ? values.mobile
+                : resumedata?.phone ?? "",
+            designation:
+              values.designation?.length > 0
+                ? values.designation
+                : resumedata?.designation ?? "",
+            experienceLevel:
+              values.experienceLevel?.length > 0
+                ? values.experienceLevel
+                : experienceLevel ?? "",
+            location:
+              values.location?.length > 0
+                ? values.location
+                : resumedata?.location ?? "",
+            skills: resumedata?.skills,
+          });
+          let score = (res.data.matchResult?.overallScore * 100)?.toFixed(2);
+          setCvMatch(+score);
+          if (+score < 40) {
+            setIsResumeUploading(false);
+          } else {
+            setIsResumeUploading(false);
+            setFieldValue("resumeUrl", res?.data?.file_url);
+          }
         }
       }
     } catch (error) {
@@ -240,7 +201,7 @@ const NameEmailModal: React.FC<Props> = ({
     <div className="min-h-screen flex items-center justify-center bg-gray-900 bg-opacity-95">
       {readyForInterview ? (
         <>
-          {cvMatch >= 0 && cvMatch < 60 ? (
+          {cvMatch >= 0 && cvMatch < 40 ? (
             <div className="fixed inset-0 flex overflow-y-auto flex-grow items-center justify-center bg-gray-900 z-50">
               <div className="max-h-[90vh] w-full max-w-md">
                 <div className="bg-gray-800 p-8 rounded-2xl shadow-2xl w-11/12 max-w-md border border-gray-700 text-center">

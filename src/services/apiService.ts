@@ -664,14 +664,6 @@ export const getCvMatchWithJD = async (
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        // {
-        //   role: "system",
-        //   content: "You are a resume-to-job matching engine. Compare the resume against the job post and return a JSON object with match percentages."
-        // },
-        // {
-        //   role: "user",
-        //   content: `RESUME: ${resumetext}\n\nJOB POST: ${JSON.stringify(jobdetails)}`
-        // }
         {
           role: "system",
           content: `You are a resume-to-job matching engine and a structured data extractor. 

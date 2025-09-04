@@ -61,6 +61,7 @@ interface InterviewInterfaceProps {
     jobTitle?: string;
   } | null;
   candidateId?: string | null;
+  jobData: JobPost | null;
 }
 
 export interface StudentInterviewAnswer {
@@ -130,6 +131,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
   physicsQuestions,
   fetchQueData,
   candidateId,
+  jobData,
 }) => {
   const [session, setSession] = useState<InterviewSession | null>(null);
   const [interviewStarted, setInterviewStarted] = useState(false);
@@ -213,13 +215,17 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
   // upload recording to cloud
   const uploadinterviewvideo = async (
     file: any,
-    damisession: InterviewSession,
-    interviewoverview: any
+    damisession: InterviewSession
   ) => {
     try {
       setIsLoading(true);
+      const timestamp = Date.now();
       const formData = new FormData();
       formData.append("video", file);
+      formData.append(
+        "fileName",
+        `${jobData?.id}_${candidateId}_${timestamp}.mp4`
+      );
       const res = await axios.post(
         `${
           import.meta.env.VITE_AIINTERVIEW_API_KEY
@@ -229,9 +235,12 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
           headers: { "Content-Type": "multipart/form-data" },
         }
       );
-      if (res.data?.file_url) {
+      if (res.data?.path) {
+        let file_url = `${
+          import.meta.env.VITE_AIINTERVIEW_API_VIDEO_ENDPOINT
+        }/${res.data?.path}`;
         try {
-          let behavioraldata = await getBehaviouralAnalysis(res.data?.file_url);
+          let behavioraldata = await getBehaviouralAnalysis(file_url);
           if (behavioraldata?.report) {
             let report = behavioraldata?.report;
             let cultural_fit_analysis = report?.cultural_fit_analysis;
@@ -241,13 +250,13 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
             delete report.overall_behavior_analysis;
             delete report.body_language_analysis;
             updateCandidateDetails(
-              res.data?.file_url?.length > 0 ? res?.data?.file_url : null,
+              file_url?.length > 0 ? file_url : null,
               damisession,
               {
-                ...interviewoverview,
+                // ...interviewoverview,
                 ...report,
                 performanceBreakdown: {
-                  ...interviewoverview?.performanceBreakdown,
+                  // ...interviewoverview?.performanceBreakdown,
                   culturalFit: cultural_fit_analysis,
                   behavior: overall_behavior_analysis,
                   body_language: body_language_analysis ?? {},
@@ -264,6 +273,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
           setErrorText("Sorry, Unable to get behavioral analysis");
           console.log("python api", error);
         }
+        setIsLoading(false);
       } else {
         setIsLoading(false);
         setErrorText("Sorry, Unable to upload interview view");
@@ -696,16 +706,8 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
           status: "completed",
         };
         if (damisession?.questions && damisession?.questions?.length > 0) {
-          let interviewoverview = await getInterviewOverviewWithAI(
-            physicsQuestions,
-            damisession?.questions ?? []
-          );
           if (data?.blob) {
-            uploadinterviewvideo(data.blob, damisession, {
-              ...interviewoverview,
-            });
-          } else {
-            updateCandidateDetails(null, damisession, { ...interviewoverview });
+            uploadinterviewvideo(data.blob, damisession);
           }
         }
         setSession({
