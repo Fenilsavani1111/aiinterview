@@ -177,7 +177,10 @@ const NameEmailModal: React.FC<Props> = ({
               values.location?.length > 0
                 ? values.location
                 : resumedata?.location ?? "",
-            skills: resumedata?.skills,
+            skills:
+              values.skills?.[0]?.length > 0
+                ? values.skills
+                : resumedata?.skills,
           });
           let score = (res.data.matchResult?.overallScore * 100)?.toFixed(2);
           setCvMatch(+score);
