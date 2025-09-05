@@ -68,6 +68,7 @@ const NameEmailModal: React.FC<Props> = ({
     setFieldValue,
     setValues,
     handleSubmit,
+    setFieldError,
   } = useFormik({
     initialValues: {
       name: "",
@@ -140,7 +141,6 @@ const NameEmailModal: React.FC<Props> = ({
             headers: { "Content-Type": "multipart/form-data" },
           }
         );
-        console.log(res.data);
         if (res.data) {
           let resumedata = res.data?.candidateInfo;
           let experienceLevel =
@@ -187,6 +187,9 @@ const NameEmailModal: React.FC<Props> = ({
             setIsResumeUploading(false);
             setFieldValue("resumeUrl", res?.data?.file_url);
           }
+        } else {
+          setIsResumeUploading(false);
+          setFieldError("resumeUrl", "Please try again...");
         }
       }
     } catch (error) {
@@ -290,6 +293,7 @@ const NameEmailModal: React.FC<Props> = ({
                         type="file"
                         accept=".pdf,application/pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                         className="hidden"
+                        disabled={isResumeUploading || isLoading}
                         onChange={async (e) => {
                           const file: any = e.target.files?.[0];
                           setFileName(file?.name ?? "");
@@ -339,7 +343,7 @@ const NameEmailModal: React.FC<Props> = ({
                     onChange={handleChange}
                   />
                   <div className="mb-4 lg:col-span-2">
-                    <label className="block font-medium text-gray-400 mb-4">
+                    <label className="block font-medium text-gray-400 mb-4 text-left">
                       Skills
                     </label>
                     {values.skills.map((skill, index) => (
@@ -428,7 +432,7 @@ const NameEmailModal: React.FC<Props> = ({
                 <Brain className="w-8 h-8" />
               </div>
               <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent text-center">
-                {jobData?.jobTitle ?? "Physics"} Interview AI
+                {jobData?.jobTitle} Interview AI
               </h1>
               <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl text-white">
                 <Camera className="w-8 h-8" />
