@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react";
 import { Camera, Mic, Brain, Clock, Award } from "lucide-react";
 import { CameraView } from "./CameraView";
 import { InterviewControls } from "./InterviewControls";
@@ -12,9 +18,10 @@ import {
   getBehaviouralAnalysis,
   getInterviewOverviewWithAI,
   processPhysicsQuestion,
-  textToSpeech,
 } from "../services/apiService";
+import { elevenLabsService } from "../services/elevenLabsService";
 import axios from "axios";
+import { JobPost } from "./NameEmailModal";
 
 export interface InterviewSession {
   id: string;
@@ -31,7 +38,7 @@ export interface QuestionResponse {
   userAnswer: string;
   aiEvaluation: string;
   score: number;
-  timestamp?: Date;
+  endTime?: number;
   responseTime: number;
 }
 
@@ -54,45 +61,112 @@ interface InterviewInterfaceProps {
     jobTitle?: string;
   } | null;
   candidateId?: string | null;
+  jobData: JobPost | null;
+}
+
+export interface StudentInterviewAnswer {
+  id: string;
+  answer: string;
+  aiEvaluation: string;
+  score: number;
+  responseTime: number;
+  Question: InterviewQuestion;
+  start: number;
+  end: number;
+}
+
+export interface Candidate {
+  id: string;
+  jobPostId: string;
+  name: string;
+  email: string;
+  phone: string;
+  mobile?: string;
+  interviewVideoLink?: string;
+  appliedDate: any;
+  interviewDate: any;
+  duration: number;
+  status: "completed" | "inprogress" | "scheduled";
+  overallScore: number;
+  scores: {
+    communication: number;
+    technical: number;
+    problemSolving: number;
+    leadership: number;
+    bodyLanguage: number;
+    confidence: number;
+  };
+  experienceLevel: string;
+  skills: string[];
+  resumeUrl: string;
+  linkedinUrl: string;
+  recommendation: string;
+  notes: string;
+  hasRecording: boolean;
+  designation?: string;
+  location?: string;
+  attemptedQuestions: number;
+  JobPost?: JobPost;
+  StudentInterviewAnswer?: StudentInterviewAnswer[];
+  aiEvaluationSummary?: {
+    summary?: string;
+    keyStrengths?: string[];
+    areasOfGrowth?: string[];
+  };
+  performanceBreakdown?: any;
+  quickStats: any;
+  recommendations?: {
+    summary?: string;
+    recommendation?: string;
+  };
+  behavioral_analysis: any;
+  video_analysis_insights?: {
+    areas_for_improvement?: string[];
+    positive_indicators?: string[];
+    recommendations?: string[];
+  };
 }
 
 const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
   physicsQuestions,
   fetchQueData,
   candidateId,
+  jobData,
 }) => {
   const [session, setSession] = useState<InterviewSession | null>(null);
-  const [currentQuestion, setCurrentQuestion] = useState<string>("");
-  const [isProcessing, setIsProcessing] = useState(false);
   const [interviewStarted, setInterviewStarted] = useState(false);
   const [questionStartTime, setQuestionStartTime] = useState<number>(0);
   const [waitingForAnswer, setWaitingForAnswer] = useState(false);
   const [microphoneReady, setMicrophoneReady] = useState(false);
-  const [audioPlaying, setAudioPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
+  const [currentAudio, setCurrentAudio] = useState<Blob | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isProcessingResponse, setIsProcessingResponse] = useState(false);
+  const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
+  const [candidateData, setCandidateData] = useState<Candidate | null>(null);
+  const isLastQuestion =
+    session?.currentQuestionIndex === physicsQuestions.length - 1;
+  const currentQuestion = physicsQuestions[session?.currentQuestionIndex ?? -1];
 
-  const questionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const interviewTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const processingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
+  let speechError = "";
   const {
     isListening,
     transcript,
+    confidence,
     startListening,
     stopListening,
     resetTranscript,
-    isSupported,
-    error: speechError,
-    confidence,
-    isSpeaking,
+    isSupported: speechSupported,
+    hasFinishedSpeaking,
     voiceActivity,
   } = useSpeechRecognition();
 
   const {
-    isPlaying: isPlayingAudio,
+    isPlaying,
     play: playAudio,
     stop: stopAudio,
+    isLoading: isLoadingAudio,
   } = useAudioPlayer();
 
   const {
@@ -104,6 +178,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
     stopRecording,
     error: cameraError,
   } = useCamera();
+
   // Test microphone access on component mount
   useEffect(() => {
     const testMicrophone = async () => {
@@ -137,348 +212,20 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
     }
   }, []);
 
-  // Initialize interview session
-  const startInterview = useCallback(async () => {
-    if (!isSupported) {
-      alert(
-        "Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari."
-      );
-      return;
-    }
-
-    if (!microphoneReady) {
-      alert(
-        "Microphone is not ready. Please allow microphone access and refresh the page."
-      );
-      return;
-    }
-
-    if (cameraError != null) {
-      alert(
-        "Camera is not ready. Please allow camera access and refresh the page."
-      );
-      return;
-    }
-
-    try {
-      console.log("🚀 Starting interview...");
-
-      // Test microphone access
-      const testStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 44100,
-        },
-      });
-      console.log("✅ Microphone access confirmed");
-      testStream.getTracks().forEach((track) => track.stop());
-
-      // Start camera
-      try {
-        await startCamera();
-        console.log("✅ Camera started");
-      } catch (error) {
-        console.warn("⚠️ Camera failed to start, continuing without camera");
-      }
-
-      // Create new session
-      const newSession: InterviewSession = {
-        id: Date.now().toString(),
-        startTime: new Date(),
-        questions: [],
-        currentQuestionIndex: 0,
-        score: 0,
-        status: "active",
-      };
-
-      setSession(newSession);
-      setInterviewStarted(true);
-
-      // Start recording in background
-      setTimeout(async () => {
-        try {
-          await startRecording();
-          console.log("✅ Recording started");
-        } catch (error) {
-          console.log("⚠️ Recording failed, continuing without recording");
-        }
-      }, 500);
-
-      // Start first question after a short delay
-      setTimeout(() => {
-        console.log("⚡ Starting first question...");
-        askNextQuestion(newSession);
-      }, 2000);
-    } catch (error) {
-      console.error("💥 Error starting interview:", error);
-      alert(
-        "Failed to start interview. Please check permissions and try again."
-      );
-    }
-  }, [isSupported, startCamera, startRecording, microphoneReady]);
-
-  // Simplified question asking
-  const askNextQuestion = useCallback(
-    async (currentSession: InterviewSession) => {
-      console.log(
-        "❓ Asking question",
-        currentSession.currentQuestionIndex + 1
-      );
-
-      if (currentSession.currentQuestionIndex >= physicsQuestions.length) {
-        console.log("🏁 Interview completed");
-        endInterview();
-        return;
-      }
-
-      const question = physicsQuestions[currentSession.currentQuestionIndex];
-      setCurrentQuestion(question?.question);
-      setQuestionStartTime(Date.now());
-      setWaitingForAnswer(false);
-      setAudioPlaying(false);
-
-      resetTranscript();
-
-      try {
-        console.log("🔊 Playing question...");
-        setAudioPlaying(true);
-
-        const voiceResponse = await textToSpeech(question?.question);
-
-        if (voiceResponse) {
-          console.log("🎵 Playing question audio...");
-          await playAudio(voiceResponse.audioUrl);
-          console.log("✅ Question audio completed");
-        } else {
-          console.log("⚠️ No audio, using delay");
-          await new Promise((resolve) => setTimeout(resolve, 3000));
-        }
-
-        setAudioPlaying(false);
-
-        // Start listening after audio completes
-        console.log("🎤 Starting to listen for answer...");
-        setWaitingForAnswer(true);
-
-        setTimeout(() => {
-          console.log("🎤 Beginning speech recognition...");
-          startListening();
-
-          // Set timeout for question (45 seconds)
-          questionTimeoutRef.current = setTimeout(() => {
-            console.log("⏰ Question timeout reached");
-            handleQuestionTimeout();
-          }, 45000);
-        }, 1000);
-      } catch (error) {
-        console.error("💥 Error with question:", error);
-        setAudioPlaying(false);
-
-        // Continue without audio
-        setTimeout(() => {
-          console.log("🎤 Starting listening (no audio)...");
-          setWaitingForAnswer(true);
-
-          setTimeout(() => {
-            startListening();
-
-            questionTimeoutRef.current = setTimeout(() => {
-              handleQuestionTimeout();
-            }, 45000);
-          }, 1000);
-        }, 2000);
-      }
-    },
-    [playAudio, startListening, resetTranscript]
-  );
-
-  // Simplified answer processing
-  const handleAnswer = useCallback(
-    async (answer: string) => {
-      if (!session || !currentQuestion || !waitingForAnswer) {
-        console.log("❌ Not ready to handle answer");
-        return;
-      }
-
-      const trimmedAnswer = answer.trim();
-      if (trimmedAnswer.length < 10) {
-        console.log("⚠️ Answer too short, waiting for more:", trimmedAnswer);
-        return;
-      }
-
-      const wordCount = trimmedAnswer.split(/\s+/).length;
-      if (wordCount < 3) {
-        console.log(
-          "⚠️ Answer has too few words, waiting for more. Words:",
-          wordCount
-        );
-        return;
-      }
-
-      // Check VAD if available, but don't block on it
-      if (isSpeaking && voiceActivity > 20) {
-        console.log("🗣️ User still speaking (VAD), waiting...");
-        return;
-      }
-
-      console.log("✅ Processing answer:", trimmedAnswer);
-
-      setIsProcessing(true);
-      setWaitingForAnswer(false);
-      stopListening();
-
-      // Clear timeouts
-      if (questionTimeoutRef.current) {
-        clearTimeout(questionTimeoutRef.current);
-        questionTimeoutRef.current = null;
-      }
-
-      const responseTime = Date.now() - questionStartTime;
-
-      try {
-        console.log("🤖 Evaluating answer...");
-        const evaluation = await processPhysicsQuestion(
-          currentQuestion,
-          trimmedAnswer
-        );
-        console.log("📊 Evaluation completed:", evaluation);
-
-        // Create question response
-        const questionResponse: QuestionResponse = {
-          question: currentQuestion,
-          userAnswer: trimmedAnswer,
-          aiEvaluation: evaluation.feedback,
-          score: evaluation.score ?? 0,
-          timestamp: new Date(),
-          responseTime: responseTime / 1000,
-        };
-
-        // Update session
-        const updatedSession = {
-          ...session,
-          questions: [...session.questions, questionResponse],
-          currentQuestionIndex: session.currentQuestionIndex + 1,
-          score: session.score + evaluation.score,
-        };
-
-        setSession(updatedSession);
-        setIsProcessing(false);
-
-        // Play feedback briefly, then move to next question
-        try {
-          console.log("🔊 Playing feedback...");
-          const feedbackAudio = await textToSpeech(evaluation.feedback);
-          if (feedbackAudio) {
-            await playAudio(feedbackAudio.audioUrl);
-          } else {
-            // Short delay if no audio
-            await new Promise((resolve) => setTimeout(resolve, 2000));
-          }
-
-          console.log("➡️ Moving to next question...");
-          setTimeout(() => {
-            askNextQuestion(updatedSession);
-          }, 2000);
-        } catch (error) {
-          console.error("💥 Error playing feedback:", error);
-          setTimeout(() => {
-            askNextQuestion(updatedSession);
-          }, 2000);
-        }
-      } catch (error) {
-        console.error("💥 Error processing answer:", error);
-
-        // Use fallback response
-        const fallbackResponse: QuestionResponse = {
-          question: currentQuestion,
-          userAnswer: trimmedAnswer,
-          aiEvaluation: "Answer received, moving forward!",
-          score: 5,
-          timestamp: new Date(),
-          responseTime: responseTime / 1000,
-        };
-
-        const updatedSession = {
-          ...session,
-          questions: [...session.questions, fallbackResponse],
-          currentQuestionIndex: session.currentQuestionIndex + 1,
-          score: session.score + 5,
-        };
-
-        setSession(updatedSession);
-        setIsProcessing(false);
-
-        setTimeout(() => {
-          askNextQuestion(updatedSession);
-        }, 2000);
-      } finally {
-        resetTranscript();
-      }
-    },
-    [
-      session,
-      currentQuestion,
-      waitingForAnswer,
-      questionStartTime,
-      stopListening,
-      playAudio,
-      askNextQuestion,
-      resetTranscript,
-      isSpeaking,
-      voiceActivity,
-    ]
-  );
-
-  // Handle question timeout
-  const handleQuestionTimeout = useCallback(() => {
-    if (session && waitingForAnswer) {
-      console.log("⏰ Question timeout");
-      setWaitingForAnswer(false);
-      stopListening();
-
-      const timeoutResponse: QuestionResponse = {
-        question: currentQuestion,
-        userAnswer: transcript || "No response (timeout)",
-        aiEvaluation: "Time up! Moving to next question.",
-        score: transcript ? 2 : 0,
-        timestamp: new Date(),
-        responseTime: 45,
-      };
-
-      const updatedSession = {
-        ...session,
-        questions: [...session.questions, timeoutResponse],
-        currentQuestionIndex: session.currentQuestionIndex + 1,
-        score: session.score + (transcript ? 2 : 0),
-      };
-
-      setSession(updatedSession);
-
-      setTimeout(() => {
-        askNextQuestion(updatedSession);
-      }, 1000);
-    }
-  }, [
-    session,
-    currentQuestion,
-    waitingForAnswer,
-    stopListening,
-    askNextQuestion,
-    transcript,
-  ]);
-
   // upload recording to cloud
   const uploadinterviewvideo = async (
     file: any,
-    damisession: InterviewSession,
-    interviewoverview: any
+    damisession: InterviewSession
   ) => {
     try {
       setIsLoading(true);
+      const timestamp = Date.now();
       const formData = new FormData();
       formData.append("video", file);
+      formData.append(
+        "fileName",
+        `${jobData?.id}_${candidateId}_${timestamp}.mp4`
+      );
       const res = await axios.post(
         `${
           import.meta.env.VITE_AIINTERVIEW_API_KEY
@@ -488,51 +235,62 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
           headers: { "Content-Type": "multipart/form-data" },
         }
       );
-      if (res.data?.file_url) {
+      if (res.data?.path) {
+        let file_url = `${
+          import.meta.env.VITE_AIINTERVIEW_API_VIDEO_ENDPOINT
+        }/${res.data?.path}`;
         try {
-          let behavioraldata = await getBehaviouralAnalysis(res.data?.file_url);
-          if (behavioraldata?.report) {
-            let report = behavioraldata?.report;
-            let cultural_fit_analysis = report?.cultural_fit_analysis;
-            let overall_behavior_analysis = report?.overall_behavior_analysis;
-            let body_language_analysis = report?.body_language_analysis;
-            delete report.cultural_fit_analysis;
-            delete report.overall_behavior_analysis;
-            delete report.body_language_analysis;
+          let questionsWithAnswer = session?.questions?.map((v) => {
+            return {
+              ...v,
+              questionDetails: physicsQuestions?.find(
+                (q) => q.question === v?.question
+              ),
+            };
+          });
+          let behavioraldata = await getBehaviouralAnalysis(
+            file_url,
+            questionsWithAnswer,
+            jobData
+          );
+          if (behavioraldata?.status === "success") {
+            let newbehavioraldata = {
+              ...behavioraldata,
+            };
+            delete newbehavioraldata?.analysis_settings;
+            delete newbehavioraldata?.status;
+            delete newbehavioraldata?.timestamp;
+            delete newbehavioraldata?.token_consumption;
+            delete newbehavioraldata?.video_url;
             updateCandidateDetails(
-              res.data?.file_url?.length > 0 ? res?.data?.file_url : null,
+              file_url?.length > 0 ? file_url : null,
               damisession,
               {
-                ...interviewoverview,
-                ...report,
-                performanceBreakdown: {
-                  ...interviewoverview?.performanceBreakdown,
-                  culturalFit: cultural_fit_analysis,
-                  behavior: overall_behavior_analysis,
-                  body_language: body_language_analysis ?? {},
-                },
+                ...newbehavioraldata,
               }
             );
+          } else {
+            setIsLoading(false);
+            setErrorText("Sorry, Unable to get behavioral analysis");
+            console.log("python api", behavioraldata);
           }
         } catch (error) {
           setIsLoading(false);
-          setErrorText(
-            "Sorry, please try again with different email or contact to admin"
-          );
+          setErrorText("Sorry, Unable to get behavioral analysis");
           console.log("python api", error);
         }
+        setIsLoading(false);
       } else {
         setIsLoading(false);
-        setErrorText("Sorry, not able to upload interview view");
+        setErrorText("Sorry, Unable to upload interview view");
       }
     } catch (error) {
       console.error("Error uploading resume file:", error);
-      setErrorText("Sorry, not able to upload interview view");
+      setErrorText("Sorry, Unable to upload interview view");
       setIsLoading(false);
     }
   };
 
-  console.log("session", session);
   // update candidate interview
   const updateCandidateDetails = async (
     videolink: string | null,
@@ -593,6 +351,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
           aiEvaluation: findquesResp?.aiEvaluation ?? "",
           score: findquesResp?.score ?? 0,
           responseTime: findquesResp?.responseTime ?? 0,
+          endTime: findquesResp?.endTime,
         });
       });
       let damiscores = {
@@ -645,6 +404,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         }
       );
       if (response.data) {
+        setCandidateData(response.data?.candidate ?? null);
         // You can handle the response here (e.g., save data, show a message, etc.)
         setIsLoading(false);
         console.log("update candidate details response:", response.data);
@@ -664,151 +424,305 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
     }
   };
 
-  // End interview
-  const endInterview = useCallback(async () => {
-    console.log("🏁 Ending interview");
-    setIsLoading(true);
-    setInterviewStarted(false);
-    setWaitingForAnswer(false);
-    setAudioPlaying(false);
-    stopListening();
-    stopAudio();
-    let data = await stopRecording();
-    if (session) {
-      let damisession: InterviewSession = {
-        ...session,
-        endTime: new Date(),
-        status: "completed",
-      };
-      setCurrentQuestion("");
-      if (session?.questions && session?.questions?.length > 0) {
-        let interviewoverview = await getInterviewOverviewWithAI(
-          physicsQuestions,
-          session?.questions ?? []
-        );
-        if (data?.blob) {
-          uploadinterviewvideo(data.blob, damisession, {
-            ...interviewoverview,
-          });
-        } else {
-          updateCandidateDetails(null, damisession, { ...interviewoverview });
-        }
-      }
-      setSession({
-        ...session,
-        endTime: new Date(),
-        status: "completed",
-      });
-    }
+  // Track which questions have had audio generated
+  const [generatedAudioQuestions, setGeneratedAudioQuestions] = useState<
+    Set<string>
+  >(new Set());
 
-    // Clear all timeouts
-    [questionTimeoutRef, interviewTimeoutRef, processingTimeoutRef].forEach(
-      (ref) => {
-        if (ref.current) {
-          clearTimeout(ref.current);
-          ref.current = null;
-        }
-      }
-    );
-  }, [session, stopListening, stopAudio, stopRecording]);
-
-  // Simplified transcript processing
+  // Auto-start listening when question audio finishes playing
   useEffect(() => {
-    if (transcript && waitingForAnswer && !isProcessing && !audioPlaying) {
-      const trimmedTranscript = transcript.trim();
-      const wordCount = trimmedTranscript.split(/\s+/).length;
-
-      console.log("📝 Transcript update:", {
-        length: trimmedTranscript.length,
-        wordCount,
-        confidence,
-        isSpeaking,
-        voiceActivity,
-      });
-
-      // Process if we have sufficient content
-      if (trimmedTranscript.length >= 10 && wordCount >= 3) {
-        // Use VAD as a hint, but don't block on it
-        const shouldWaitForVAD = isSpeaking && voiceActivity > 20;
-
-        if (!shouldWaitForVAD) {
-          console.log("✅ Processing answer (VAD clear or not critical)");
-
-          if (processingTimeoutRef.current) {
-            clearTimeout(processingTimeoutRef.current);
-          }
-
-          processingTimeoutRef.current = setTimeout(() => {
-            handleAnswer(trimmedTranscript);
-          }, 1500); // Shorter delay
-        } else {
-          console.log("🗣️ VAD suggests user still speaking, waiting a bit...");
+    if (!isPlaying && !isLoading && currentAudio && speechSupported) {
+      // Small delay to ensure audio has fully stopped
+      const timer = setTimeout(() => {
+        if (!isListening && !hasFinishedSpeaking) {
+          startListening();
         }
-      }
+      }, 500);
+      return () => clearTimeout(timer);
     }
   }, [
-    transcript,
-    waitingForAnswer,
-    isProcessing,
-    audioPlaying,
-    handleAnswer,
-    confidence,
-    isSpeaking,
-    voiceActivity,
-  ]);
-
-  // Interview timeout
-  useEffect(() => {
-    if (interviewStarted) {
-      interviewTimeoutRef.current = setTimeout(() => {
-        console.log("⏰ Interview timeout reached");
-        endInterview();
-      }, 30 * 60 * 1000); // 30 minutes
-    }
-
-    return () => {
-      if (interviewTimeoutRef.current) {
-        clearTimeout(interviewTimeoutRef.current);
-      }
-    };
-  }, [interviewStarted, endInterview]);
-
-  const resetInterview = useCallback(() => {
-    console.log("🔄 Resetting interview");
-    setSession(null);
-    setCurrentQuestion("");
-    setInterviewStarted(false);
-    setIsProcessing(false);
-    setWaitingForAnswer(false);
-    setAudioPlaying(false);
-    stopCamera();
-    resetTranscript();
-  }, [stopCamera, resetTranscript]);
-
-  // Debug info
-  useEffect(() => {
-    // console.log("🔧 System Status:", {
-    //   speechSupported: isSupported,
-    //   microphoneReady,
-    //   isListening,
-    //   waitingForAnswer,
-    //   isProcessing,
-    //   audioPlaying,
-    //   voiceActivity,
-    //   isSpeaking,
-    //   transcriptLength: transcript.length,
-    // });
-  }, [
-    isSupported,
-    microphoneReady,
+    isPlaying,
+    isLoading,
+    currentAudio,
+    speechSupported,
     isListening,
-    waitingForAnswer,
-    isProcessing,
-    audioPlaying,
-    voiceActivity,
-    isSpeaking,
-    transcript,
+    hasFinishedSpeaking,
+    startListening,
   ]);
+
+  // Auto-advance to next question when user finishes speaking
+  useEffect(() => {
+    if (
+      hasFinishedSpeaking &&
+      transcript.trim() &&
+      !isAnalyzing &&
+      !isProcessingResponse
+    ) {
+      handleNextQuestion();
+    }
+  }, [hasFinishedSpeaking, transcript, isAnalyzing, isProcessingResponse]);
+
+  const generateQuestionAudio = useCallback(
+    async (question: any) => {
+      // Prevent duplicate audio generation for the same question
+      if (
+        generatedAudioQuestions.has(question.id) ||
+        isGeneratingAudio ||
+        isPlaying
+      ) {
+        return;
+      }
+
+      setIsGeneratingAudio(true);
+      setGeneratedAudioQuestions((prev) => new Set(prev).add(question.id));
+
+      try {
+        setQuestionStartTime(Date.now());
+        const voiceResponse = await elevenLabsService.textToSpeech(
+          question?.question
+        );
+
+        if (voiceResponse) {
+          console.log("🎵 Playing question audio...");
+          setCurrentAudio(voiceResponse);
+          await playAudio(voiceResponse);
+          console.log("✅ Question audio completed");
+        } else {
+          console.log("⚠️ No audio, using delay");
+          await new Promise((resolve) => setTimeout(resolve, 3000));
+        }
+      } catch (error) {
+        console.error("Failed to generate question audio:", error);
+        // Remove from generated set if failed so it can be retried
+        setGeneratedAudioQuestions((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(question.id);
+          return newSet;
+        });
+      } finally {
+        setIsGeneratingAudio(false);
+      }
+    },
+    [playAudio, generatedAudioQuestions, isGeneratingAudio, isPlaying]
+  );
+
+  useEffect(() => {
+    if (currentQuestion) {
+      // Reset transcript and analysis when moving to new question
+      setIsProcessingResponse(false);
+      resetTranscript();
+      // Small delay to ensure state is reset before generating audio
+      setTimeout(() => {
+        generateQuestionAudio(currentQuestion);
+      }, 100);
+    }
+  }, [currentQuestion, generateQuestionAudio, resetTranscript]);
+
+  const handleNextQuestion = async () => {
+    if (!session || !currentQuestion || session?.status === "completed") {
+      console.log("❌ Not ready to handle answer");
+      return;
+    }
+
+    const trimmedAnswer = transcript.trim();
+    if (trimmedAnswer.length < 10) {
+      console.log("⚠️ Answer too short, waiting for more:", trimmedAnswer);
+      return;
+    }
+
+    const wordCount = trimmedAnswer.split(/\s+/).length;
+    if (wordCount < 3) {
+      console.log(
+        "⚠️ Answer has too few words, waiting for more. Words:",
+        wordCount
+      );
+      return;
+    }
+
+    // Prevent multiple calls
+    if (isProcessingResponse) return;
+    setIsProcessingResponse(true);
+
+    // Stop listening when processing response
+    if (isListening) {
+      stopListening();
+    }
+    setIsAnalyzing(true);
+
+    try {
+      const evaluation = await processPhysicsQuestion(
+        currentQuestion.question,
+        trimmedAnswer
+      );
+      console.log("📊 Evaluation completed:", evaluation);
+
+      // Play feedback briefly, then move to next question
+      setIsGeneratingAudio(true);
+      try {
+        console.log("🔊 Playing feedback...");
+        const feedbackAudio = await elevenLabsService.textToSpeech(
+          evaluation.feedback
+        );
+        if (feedbackAudio) {
+          console.log("🎵 Playing question audio...");
+          setCurrentAudio(feedbackAudio);
+          await playAudio(feedbackAudio);
+          console.log("✅ Question audio completed");
+        } else {
+          // Short delay if no audio
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+        }
+      } catch (error) {
+        console.error("💥 Error playing feedback:", error);
+      }
+      const responseTime = (Date.now() - questionStartTime) / 1000;
+      let totalResponseTime = session.questions.reduce(
+        (sum, q) => sum + q.responseTime,
+        0
+      );
+      const endTime = totalResponseTime + responseTime;
+
+      // Create question response
+      const questionResponse: QuestionResponse = {
+        question: currentQuestion?.question,
+        userAnswer: trimmedAnswer,
+        aiEvaluation: evaluation.feedback,
+        score: evaluation.score ?? 0,
+        endTime: endTime,
+        responseTime: responseTime,
+      };
+
+      // Update session
+      const updatedSession = {
+        ...session,
+        questions: [...session.questions, questionResponse],
+        currentQuestionIndex: session.currentQuestionIndex + 1,
+        score: session.score + evaluation.score,
+      };
+      setSession(updatedSession);
+
+      setIsGeneratingAudio(false);
+      if (isLastQuestion) {
+        setTimeout(() => {
+          endInterview(updatedSession);
+        }, 1000);
+      } else {
+        // Small delay before allowing next response processing
+        setTimeout(() => {
+          setIsProcessingResponse(false);
+        }, 500);
+      }
+    } catch (error) {
+      console.error("Failed to process response:", error);
+      setIsProcessingResponse(false);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const startInterview = async () => {
+    if (!speechSupported) {
+      alert(
+        "Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari."
+      );
+      return;
+    }
+
+    if (!microphoneReady) {
+      alert(
+        "Microphone is not ready. Please allow microphone access and refresh the page."
+      );
+      return;
+    }
+
+    if (cameraError != null) {
+      alert(
+        "Camera is not ready. Please allow camera access and refresh the page."
+      );
+      return;
+    }
+
+    try {
+      console.log("🚀 Starting interview...");
+
+      // Test microphone access
+      const testStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 44100,
+        },
+      });
+      console.log("✅ Microphone access confirmed");
+      testStream.getTracks().forEach((track) => track.stop());
+
+      // Start camera
+      try {
+        await startCamera();
+        console.log("✅ Camera started");
+      } catch (error) {
+        console.warn("⚠️ Camera failed to start, continuing without camera");
+      }
+
+      // Create new session
+      const newSession: InterviewSession = {
+        id: Date.now().toString(),
+        startTime: new Date(),
+        questions: [],
+        currentQuestionIndex: 0,
+        score: 0,
+        status: "active",
+      };
+      setSession(newSession);
+      setInterviewStarted(true);
+
+      // Start recording in background
+      setTimeout(async () => {
+        try {
+          await startRecording();
+          console.log("✅ Recording started");
+        } catch (error) {
+          console.log("⚠️ Recording failed, continuing without recording");
+        }
+      }, 500);
+    } catch (error) {
+      console.error("💥 Error starting interview:", error);
+      alert(
+        "Failed to start interview. Please check permissions and try again."
+      );
+    }
+  };
+
+  // End interview
+  const endInterview = useCallback(
+    async (updatedSession: InterviewSession) => {
+      console.log("🏁 Ending interview");
+      setIsLoading(true);
+      setInterviewStarted(false);
+      // setWaitingForAnswer(false);
+      // setAudioPlaying(false);
+      stopListening();
+      stopAudio();
+      let data = await stopRecording();
+      if (updatedSession) {
+        let damisession: InterviewSession = {
+          ...updatedSession,
+          endTime: new Date(),
+          status: "completed",
+        };
+        if (damisession?.questions && damisession?.questions?.length > 0) {
+          if (data?.blob) {
+            uploadinterviewvideo(data.blob, damisession);
+          }
+        }
+        setSession({
+          ...damisession,
+        });
+      }
+    },
+    [session, stopListening, stopAudio, stopRecording]
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-blue-50 to-purple-100">
@@ -826,11 +740,13 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
               <Camera className="w-8 h-8" />
             </div>
           </div>
-          <p className="text-gray-600 text-lg max-w-3xl mx-auto">
-            🎤 <strong>Smart Voice Detection!</strong> AI interview that
-            understands when you're speaking. Answer questions naturally at your
-            own pace.
-          </p>
+          {session?.status !== "completed" && (
+            <p className="text-gray-600 text-lg max-w-3xl mx-auto">
+              🎤 <strong>Smart Voice Detection!</strong> AI interview that
+              understands when you're speaking. Answer questions naturally at
+              your own pace.
+            </p>
+          )}
         </div>
 
         {isLoading ? (
@@ -927,14 +843,14 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
                 <button
                   onClick={startInterview}
                   disabled={
-                    !isSupported ||
+                    !speechSupported ||
                     !!speechError ||
                     !microphoneReady ||
                     !!cameraError
                   }
                   className="w-full px-8 py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold text-lg rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 >
-                  🎤 Start Smart Interview
+                  🎤 Start Interview
                 </button>
               </div>
             </div>
@@ -943,9 +859,9 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
           /* Interview Summary */
           <InterviewSummary
             session={session}
-            onRestart={resetInterview}
             isLoading={isLoading}
             errorText={errorText}
+            candidateData={candidateData}
           />
         ) : (
           /* Active Interview */
@@ -960,14 +876,15 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
 
               <InterviewControls
                 isListening={isListening}
-                isProcessing={isProcessing}
-                isPlayingAudio={isPlayingAudio || audioPlaying}
+                isProcessing={isAnalyzing || isProcessingResponse}
+                isPlayingAudio={isGeneratingAudio || isPlaying}
                 waitingForAnswer={waitingForAnswer}
                 onEndInterview={endInterview}
+                session={session as InterviewSession}
               />
 
               {/* Voice Activity Status */}
-              {isListening && (
+              {!isAnalyzing && !isPlaying && isListening && (
                 <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-4">
                   <h3 className="text-lg font-semibold text-gray-800 mb-3">
                     🎤 Voice Status
@@ -977,12 +894,12 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
                       <span className="text-sm text-gray-600">Speaking:</span>
                       <span
                         className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          isSpeaking
-                            ? "bg-green-100 text-green-800"
-                            : "bg-gray-100 text-gray-600"
+                          hasFinishedSpeaking
+                            ? "bg-gray-100 text-gray-600"
+                            : "bg-green-100 text-green-800"
                         }`}
                       >
-                        {isSpeaking ? "🗣️ Yes" : "🤐 No"}
+                        {hasFinishedSpeaking ? "🤐 No" : "🗣️ Yes"}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
@@ -1015,7 +932,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
 
               <QuestionDisplay
                 question={currentQuestion}
-                isProcessing={isProcessing}
+                isProcessing={isAnalyzing}
                 isListening={isListening}
                 waitingForAnswer={waitingForAnswer}
                 transcript={transcript}

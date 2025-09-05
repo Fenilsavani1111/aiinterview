@@ -258,7 +258,7 @@ export const useCamera = (): CameraHook => {
           const mediaRecorder = new MediaRecorder(streamRef.current!, options);
 
           mediaRecorder.ondataavailable = (event) => {
-            console.log("Data available:", event.data.size, "bytes");
+            // console.log("Data available:", event.data.size, "bytes");
             if (event.data.size > 0) {
               recordedChunksRef.current.push(event.data);
             }

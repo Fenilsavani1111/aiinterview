@@ -637,7 +637,9 @@ ${candidateInterview.map(v =>
 
 // get behaviour analysis using python api
 export const getBehaviouralAnalysis = async (
-  video_url: string
+  video_url: string,
+  questionsWithAnswer: any,
+  jobData: any,
 ) => {
   try {
     const response = await fetch(`${import.meta.env.VITE_BEHAVIOUR_API}`, {
@@ -645,7 +647,7 @@ export const getBehaviouralAnalysis = async (
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ video_url: video_url })
+      body: JSON.stringify({ video_url: video_url, questionsWithAnswer: questionsWithAnswer, jobData: jobData })
     })
     let res = await response.json()
     return res
@@ -664,14 +666,6 @@ export const getCvMatchWithJD = async (
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        // {
-        //   role: "system",
-        //   content: "You are a resume-to-job matching engine. Compare the resume against the job post and return a JSON object with match percentages."
-        // },
-        // {
-        //   role: "user",
-        //   content: `RESUME: ${resumetext}\n\nJOB POST: ${JSON.stringify(jobdetails)}`
-        // }
         {
           role: "system",
           content: `You are a resume-to-job matching engine and a structured data extractor. 

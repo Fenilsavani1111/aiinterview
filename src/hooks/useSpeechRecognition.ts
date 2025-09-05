@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback } from 'react';
 
 // Extend the Window interface to include speech recognition
 declare global {
@@ -15,6 +15,7 @@ interface SpeechRecognitionHook {
   stopListening: () => void;
   resetTranscript: () => void;
   isSupported: boolean;
+  hasFinishedSpeaking: boolean;
   error: string | null;
   confidence: number;
   isSpeaking: boolean; // New: indicates if user is currently speaking
@@ -26,180 +27,24 @@ export const useSpeechRecognition = (): SpeechRecognitionHook => {
   const [transcript, setTranscript] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [confidence, setConfidence] = useState(0);
+  const [hasFinishedSpeaking, setHasFinishedSpeaking] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [voiceActivity, setVoiceActivity] = useState(0);
-  
+
   const recognitionRef = useRef<any>(null);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const restartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const finalTranscriptRef = useRef<string>('');
-  const isStoppingRef = useRef<boolean>(false);
-  
-  // Voice Activity Detection refs
+  const manualStopRef = useRef<boolean>(false);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
-  const microphoneRef = useRef<MediaStreamAudioSourceNode | null>(null);
-  const vadIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const lastSpeechTimeRef = useRef<number>(0);
-  const speechDetectedRef = useRef<boolean>(false);
-  const streamRef = useRef<MediaStream | null>(null);
+  const dataArrayRef = useRef<Uint8Array | null>(null);
+  const rafIdRef = useRef<number | null>(null);
+  const prevActivityRef = useRef<number>(0);
+  const startingRef = useRef<boolean>(false);
+  const restartTimeoutRef = useRef<number | null>(null);
 
-  const isSupported = typeof window !== 'undefined' && 
-    ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
-
-  // Voice Activity Detection setup
-  const setupVoiceActivityDetection = useCallback(async () => {
-    try {
-      console.log('🎤 Setting up Voice Activity Detection...');
-      
-      // Get microphone access
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: false, // Keep some noise for VAD
-          autoGainControl: true,
-          sampleRate: 44100
-        } 
-      });
-      
-      streamRef.current = stream;
-      
-      // Create audio context
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      audioContextRef.current = audioContext;
-      
-      // Create analyser
-      const analyser = audioContext.createAnalyser();
-      analyser.fftSize = 512;
-      analyser.smoothingTimeConstant = 0.3;
-      analyserRef.current = analyser;
-      
-      // Connect microphone to analyser
-      const microphone = audioContext.createMediaStreamSource(stream);
-      microphoneRef.current = microphone;
-      microphone.connect(analyser);
-      
-      console.log('✅ Voice Activity Detection setup complete');
-      
-      // Start monitoring voice activity
-      startVoiceActivityMonitoring();
-      
-    } catch (error) {
-      console.error('❌ VAD setup failed:', error);
-      setError('Voice activity detection setup failed');
-    }
-  }, []);
-
-  // Voice Activity Monitoring
-  const startVoiceActivityMonitoring = useCallback(() => {
-    if (!analyserRef.current) return;
-    
-    const analyser = analyserRef.current;
-    const bufferLength = analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-    
-    console.log('🔊 Starting voice activity monitoring...');
-    
-    vadIntervalRef.current = setInterval(() => {
-      if (!analyser || isStoppingRef.current) return;
-      
-      analyser.getByteFrequencyData(dataArray);
-      
-      // Calculate average volume
-      let sum = 0;
-      for (let i = 0; i < bufferLength; i++) {
-        sum += dataArray[i];
-      }
-      const average = sum / bufferLength;
-      
-      // Calculate voice activity (0-100)
-      const activity = Math.min(100, (average / 128) * 100);
-      setVoiceActivity(Math.round(activity));
-      
-      // Voice activity threshold (adjustable)
-      const SPEECH_THRESHOLD = 15; // Minimum activity level to consider as speech
-      const SILENCE_DURATION = 2500; // 2.5 seconds of silence before considering speech ended
-      
-      const now = Date.now();
-      
-      if (activity > SPEECH_THRESHOLD) {
-        // Speech detected
-        if (!speechDetectedRef.current) {
-          console.log('🗣️ Speech started - VAD detected voice activity');
-          speechDetectedRef.current = true;
-          setIsSpeaking(true);
-        }
-        lastSpeechTimeRef.current = now;
-      } else {
-        // Check for silence duration
-        if (speechDetectedRef.current && (now - lastSpeechTimeRef.current) > SILENCE_DURATION) {
-          console.log('🤐 Speech ended - VAD detected sustained silence');
-          speechDetectedRef.current = false;
-          setIsSpeaking(false);
-        }
-      }
-      
-    }, 100); // Check every 100ms
-  }, []);
-
-  // Stop Voice Activity Detection
-  const stopVoiceActivityDetection = useCallback(() => {
-    console.log('🛑 Stopping Voice Activity Detection...');
-    
-    // Clear monitoring interval
-    if (vadIntervalRef.current) {
-      clearInterval(vadIntervalRef.current);
-      vadIntervalRef.current = null;
-    }
-    
-    // Disconnect audio nodes
-    if (microphoneRef.current) {
-      microphoneRef.current.disconnect();
-      microphoneRef.current = null;
-    }
-    
-    // Close audio context
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-      audioContextRef.current = null;
-    }
-    
-    // Stop microphone stream
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    
-    // Reset states
-    setIsSpeaking(false);
-    setVoiceActivity(0);
-    speechDetectedRef.current = false;
-    analyserRef.current = null;
-  }, []);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.stop();
-        } catch (e) {
-          console.log('Recognition cleanup: already stopped');
-        }
-      }
-      
-      // Clear all timeouts
-      [timeoutRef, silenceTimeoutRef, restartTimeoutRef].forEach(ref => {
-        if (ref.current) {
-          clearTimeout(ref.current);
-        }
-      });
-      
-      // Stop VAD
-      stopVoiceActivityDetection();
-    };
-  }, [stopVoiceActivityDetection]);
+  const isSupported = typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
 
   const startListening = useCallback(() => {
     if (!isSupported) {
@@ -207,303 +52,297 @@ export const useSpeechRecognition = (): SpeechRecognitionHook => {
       return;
     }
 
-    // Stop any existing recognition
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch (e) {
-        console.log('Previous recognition already stopped');
+    setHasFinishedSpeaking(false);
+    // mark that this is an active/intentional listening session
+    manualStopRef.current = false;
+    // prevent concurrent starts
+    if (startingRef.current) return;
+    if (recognitionRef.current && isListening) return;
+    startingRef.current = true;
+    console.log('🎤 Starting enhanced speech recognition with VAD...');
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognitionRef.current = new SpeechRecognition();
+
+    recognitionRef.current.continuous = true;
+    recognitionRef.current.interimResults = true;
+    recognitionRef.current.lang = 'en-US';
+
+    recognitionRef.current.onstart = () => {
+      setIsListening(true);
+      startingRef.current = false;
+      if (restartTimeoutRef.current) {
+        clearTimeout(restartTimeoutRef.current as number);
+        restartTimeoutRef.current = null;
       }
-    }
+    };
 
-    // Clear any existing timeouts
-    [timeoutRef, silenceTimeoutRef, restartTimeoutRef].forEach(ref => {
-      if (ref.current) {
-        clearTimeout(ref.current);
-        ref.current = null;
+    recognitionRef.current.onresult = (event: any) => {
+      let interimTranscript = '';
+      let finalProduced = false;
+
+      // Clear any existing silence timer
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
       }
-    });
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        if (result.isFinal) {
+          const text = result[0].transcript;
+          // Accumulate final transcripts across recognition restarts/pauses
+          finalTranscriptRef.current = (finalTranscriptRef.current + ' ' + text).trim();
+          setConfidence(result[0].confidence);
+          finalProduced = true;
+        } else {
+          interimTranscript += result[0].transcript;
+        }
+      }
 
-    // Reset state
-    isStoppingRef.current = false;
-    finalTranscriptRef.current = '';
-    speechDetectedRef.current = false;
-    lastSpeechTimeRef.current = 0;
+      // Combine accumulated final transcript with current interim
+      const combined = (finalTranscriptRef.current + (interimTranscript ? ' ' + interimTranscript : '')).trim();
+      setTranscript(combined);
 
-    try {
-      console.log('🎤 Starting enhanced speech recognition with VAD...');
-      
-      // Setup Voice Activity Detection first
-      setupVoiceActivityDetection();
-      
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const recognition = new SpeechRecognition();
+      // If any final result was produced, start silence timer to detect end of speech
+      if (finalProduced) {
+        silenceTimerRef.current = setTimeout(() => {
+          setHasFinishedSpeaking(true);
+          if (recognitionRef.current) {
+            recognitionRef.current.stop();
+          }
+        }, 3000); // 3 seconds of silence after final transcript
+      }
+    };
 
-      // Configure recognition settings
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'en-US';
-      recognition.maxAlternatives = 1;
-      
-      recognition.onstart = () => {
-        console.log('🎤 Speech recognition started with VAD integration');
-        setIsListening(true);
-        setError(null);
-        setTranscript('');
-        setConfidence(0);
-        
-        // Set maximum listening time (45 seconds)
-        timeoutRef.current = setTimeout(() => {
-          console.log('⏰ Maximum listening time reached');
-          if (recognitionRef.current && !isStoppingRef.current) {
-            try {
-              isStoppingRef.current = true;
-              recognitionRef.current.stop();
-            } catch (e) {
-              console.log('Recognition already stopped during timeout');
+    recognitionRef.current.onerror = (event: any) => {
+      console.warn('⚠️ Speech recognition error:', event.error);
+
+      let errorMessage = '';
+      let shouldRestart = false;
+      let shouldShowError = true;
+
+      switch (event.error) {
+        case 'no-speech':
+          console.log('No speech detected, attempting auto-restart...');
+          shouldRestart = true;
+          shouldShowError = false;
+          break;
+        case 'audio-capture':
+          errorMessage = 'Microphone not accessible. Please check permissions.';
+          break;
+        case 'not-allowed':
+          errorMessage = 'Microphone access denied. Please allow permissions.';
+          break;
+        case 'network':
+          errorMessage = 'Network error. Please check connection.';
+          shouldRestart = true;
+          break;
+        case 'aborted':
+          console.log('Speech recognition aborted (normal)');
+          shouldShowError = false;
+          break;
+        default:
+          errorMessage = `Speech recognition error: ${event.error}`;
+      }
+
+      if (shouldShowError && errorMessage) {
+        setError(errorMessage);
+      }
+
+      setIsListening(false);
+
+      // Auto-restart for certain errors if we haven't captured much
+      if (shouldRestart && finalTranscriptRef.current.trim().length < 15) {
+        console.log('🔄 Scheduling auto-restart with VAD...');
+        if (!restartTimeoutRef.current) {
+          restartTimeoutRef.current = window.setTimeout(() => {
+            restartTimeoutRef.current = null;
+            if (!manualStopRef.current) {
+              startListening();
             }
+          }, 300) as unknown as number;
+        }
+      }
+    };
+
+    recognitionRef.current.onend = () => {
+      setIsListening(false);
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
+
+      // If stopListening() was called manually, perform full cleanup.
+      if (manualStopRef.current) {
+        // reset reported activity
+        setVoiceActivity(0);
+        setIsSpeaking(false);
+        // Clean up audio monitoring resources when recognition ends
+        if (rafIdRef.current) {
+          cancelAnimationFrame(rafIdRef.current);
+          rafIdRef.current = null;
+        }
+        if (analyserRef.current) {
+          analyserRef.current.disconnect();
+          analyserRef.current = null;
+        }
+        if (audioContextRef.current) {
+          try {
+            audioContextRef.current.close();
+          } catch (e) {
+            // ignore
           }
-        }, 45000);
-      };
-
-      recognition.onresult = (event: any) => {
-        if (isStoppingRef.current) {
-          console.log('Recognition is stopping, ignoring result');
-          return;
+          audioContextRef.current = null;
         }
-
-        console.log('🗣️ Speech recognition result with VAD context');
-        
-        let interimTranscript = '';
-        let newFinalTranscript = '';
-        let maxConfidence = 0;
-
-        // Process all results
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const result = event.results[i];
-          const transcript = result[0].transcript;
-          const confidence = result[0].confidence || 0.8;
-          
-          if (result.isFinal) {
-            newFinalTranscript += transcript;
-            maxConfidence = Math.max(maxConfidence, confidence);
-            console.log('✅ Final result with VAD:', transcript);
-          } else {
-            interimTranscript += transcript;
-          }
+        if (mediaStreamRef.current) {
+          mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+          mediaStreamRef.current = null;
         }
-
-        // Update final transcript accumulator
-        if (newFinalTranscript) {
-          finalTranscriptRef.current += newFinalTranscript;
-        }
-
-        // Update current transcript
-        const currentTranscript = (finalTranscriptRef.current + ' ' + interimTranscript).trim();
-        if (currentTranscript) {
-          setTranscript(currentTranscript);
-          setConfidence(maxConfidence || 0.8);
-          console.log('📝 VAD-enhanced transcript:', currentTranscript);
-        }
-
-        // Clear previous silence timeout
-        if (silenceTimeoutRef.current) {
-          clearTimeout(silenceTimeoutRef.current);
-        }
-
-        // Enhanced silence detection using VAD
-        silenceTimeoutRef.current = setTimeout(() => {
-          console.log('🤐 Checking speech completion with VAD...');
-          
-          // Check both transcript length and VAD speech detection
-          const hasSubstantialContent = currentTranscript.length > 15;
-          const vadIndicatesNoSpeech = !speechDetectedRef.current;
-          
-          console.log('📊 Speech completion analysis:', {
-            transcriptLength: currentTranscript.length,
-            hasSubstantialContent,
-            vadSpeechDetected: speechDetectedRef.current,
-            vadIndicatesNoSpeech,
-            voiceActivity: voiceActivity
-          });
-          
-          // Only stop if we have content AND VAD indicates no speech
-          if (hasSubstantialContent && vadIndicatesNoSpeech && !isStoppingRef.current) {
-            console.log('✅ VAD confirms speech completion - stopping recognition');
-            isStoppingRef.current = true;
-            if (recognitionRef.current) {
+      } else {
+        // recognition ended due to silence or internal restart — restart automatically
+        // ensure only one restart is scheduled at a time
+        if (!restartTimeoutRef.current) {
+          restartTimeoutRef.current = window.setTimeout(() => {
+            restartTimeoutRef.current = null;
+            if (!manualStopRef.current) {
               try {
-                recognitionRef.current.stop();
+                console.log('🔁 Auto-restarting speech recognition to continue across pauses');
+                startListening();
               } catch (e) {
-                console.log('Recognition already stopped');
+                // swallow
               }
             }
-          } else if (!hasSubstantialContent) {
-            console.log('⚠️ Insufficient content, continuing to listen...');
-          } else if (!vadIndicatesNoSpeech) {
-            console.log('🗣️ VAD still detects speech activity, continuing...');
+          }, 250) as unknown as number;
+        }
+      }
+    };
+
+    // Start browser speech recognition
+    recognitionRef.current.start();
+
+    // Start audio activity monitoring (independent of SpeechRecognition)
+    (async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaStreamRef.current = stream;
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        const audioCtx = new AudioCtx();
+        audioContextRef.current = audioCtx;
+
+        const source = audioCtx.createMediaStreamSource(stream);
+        const analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 2048;
+        analyserRef.current = analyser;
+        source.connect(analyser);
+
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        dataArrayRef.current = dataArray;
+
+        const tick = () => {
+          try {
+            if (!analyserRef.current || !dataArrayRef.current) return;
+            analyserRef.current.getByteTimeDomainData(dataArrayRef.current);
+            // compute RMS (0..1)
+            let sum = 0;
+            for (let i = 0; i < dataArrayRef.current.length; i++) {
+              const v = (dataArrayRef.current[i] - 128) / 128;
+              sum += v * v;
+            }
+            const rms = Math.sqrt(sum / dataArrayRef.current.length);
+            // scale and smooth the raw RMS to a human-friendly percentage
+            const rawPercent = Math.min(100, rms * 300); // tuned multiplier
+            const smoothed = prevActivityRef.current * 0.82 + rawPercent * 0.18;
+            prevActivityRef.current = smoothed;
+            const activityPercent = Math.round(smoothed);
+            setVoiceActivity(activityPercent);
+            // speaking if activity above small threshold
+            setIsSpeaking(activityPercent > 6);
+          } catch (e) {
+            // ignore per-frame errors
           }
-        }, 3000); // 3 seconds of silence + VAD confirmation
-      };
+          rafIdRef.current = requestAnimationFrame(tick);
+        };
 
-      recognition.onerror = (event: any) => {
-        console.warn('⚠️ Speech recognition error:', event.error);
-        
-        let errorMessage = '';
-        let shouldRestart = false;
-        let shouldShowError = true;
-        
-        switch (event.error) {
-          case 'no-speech':
-            console.log('No speech detected, attempting auto-restart...');
-            shouldRestart = true;
-            shouldShowError = false;
-            break;
-          case 'audio-capture':
-            errorMessage = 'Microphone not accessible. Please check permissions.';
-            break;
-          case 'not-allowed':
-            errorMessage = 'Microphone access denied. Please allow permissions.';
-            break;
-          case 'network':
-            errorMessage = 'Network error. Please check connection.';
-            shouldRestart = true;
-            break;
-          case 'aborted':
-            console.log('Speech recognition aborted (normal)');
-            shouldShowError = false;
-            break;
-          default:
-            errorMessage = `Speech recognition error: ${event.error}`;
+        rafIdRef.current = requestAnimationFrame(tick);
+      } catch (err: any) {
+        // unable to access microphone for monitoring — record error and continue
+        console.warn('Voice activity monitor not started', err);
+        try {
+          setError && setError(
+            err && err.message ? `Voice activity monitor not started: ${err.message}` : 'Voice activity monitor not started'
+          );
+        } catch (e) {
+          // ignore setting error failures
         }
-        
-        if (shouldShowError && errorMessage) {
-          setError(errorMessage);
-        }
-        
-        setIsListening(false);
-        isStoppingRef.current = false;
-        
-        // Clear timeouts
-        [timeoutRef, silenceTimeoutRef].forEach(ref => {
-          if (ref.current) {
-            clearTimeout(ref.current);
-            ref.current = null;
-          }
-        });
-
-        // Auto-restart for certain errors if we haven't captured much
-        if (shouldRestart && finalTranscriptRef.current.trim().length < 15) {
-          console.log('🔄 Auto-restarting with VAD...');
-          restartTimeoutRef.current = setTimeout(() => {
-            startListening();
-          }, 2000);
-        }
-      };
-
-      recognition.onend = () => {
-        console.log('🛑 Speech recognition ended');
-        setIsListening(false);
-        isStoppingRef.current = false;
-        
-        // Stop VAD
-        stopVoiceActivityDetection();
-        
-        // Clear timeouts
-        [timeoutRef, silenceTimeoutRef].forEach(ref => {
-          if (ref.current) {
-            clearTimeout(ref.current);
-            ref.current = null;
-          }
-        });
-
-        // Set final transcript
-        if (finalTranscriptRef.current.trim()) {
-          console.log('📝 Setting final VAD-enhanced transcript:', finalTranscriptRef.current.trim());
-          setTranscript(finalTranscriptRef.current.trim());
-        }
-      };
-
-      recognition.onspeechstart = () => {
-        console.log('🗣️ Speech detected by recognition API');
-        setError(null);
-        
-        // Clear silence timeout when speech starts
-        if (silenceTimeoutRef.current) {
-          clearTimeout(silenceTimeoutRef.current);
-        }
-      };
-
-      recognition.onspeechend = () => {
-        console.log('🤐 Speech ended by recognition API');
-        // Don't stop immediately, let VAD and silence timeout handle it
-      };
-
-      recognitionRef.current = recognition;
-      
-      // Start recognition
-      recognition.start();
-      console.log('🚀 VAD-enhanced speech recognition started');
-      
-    } catch (err: any) {
-      console.error('💥 Error starting speech recognition:', err);
-      setError('Failed to start speech recognition: ' + err.message);
-      setIsListening(false);
-      isStoppingRef.current = false;
-      stopVoiceActivityDetection();
-    }
-  }, [isSupported, setupVoiceActivityDetection, stopVoiceActivityDetection, voiceActivity]);
+      }
+    })();
+  }, [isSupported]);
 
   const stopListening = useCallback(() => {
-    console.log('🛑 Manually stopping VAD-enhanced speech recognition...');
-    
-    isStoppingRef.current = true;
-    
-    // Clear all timeouts
-    [timeoutRef, silenceTimeoutRef, restartTimeoutRef].forEach(ref => {
-      if (ref.current) {
-        clearTimeout(ref.current);
-        ref.current = null;
-      }
-    });
-    
-    // Stop VAD
-    stopVoiceActivityDetection();
-    
+    // mark that user intentionally stopped listening
+    manualStopRef.current = true;
     if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-        console.log('✅ Speech recognition stop() called');
-      } catch (e) {
-        console.log('Recognition already stopped or error stopping:', e);
-      }
+      recognitionRef.current.stop();
     }
-    setIsListening(false);
-  }, [stopVoiceActivityDetection]);
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+    }
+    // Stop audio monitoring
+    if (rafIdRef.current) {
+      cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
+    }
+    if (analyserRef.current) {
+      try {
+        analyserRef.current.disconnect();
+      } catch (e) { }
+      analyserRef.current = null;
+    }
+    if (audioContextRef.current) {
+      try {
+        audioContextRef.current.close();
+      } catch (e) { }
+      audioContextRef.current = null;
+    }
+    if (mediaStreamRef.current) {
+      try {
+        mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+      } catch (e) { }
+      mediaStreamRef.current = null;
+    }
+    // reset activity indicators
+    prevActivityRef.current = 0;
+    setVoiceActivity(0);
+    setIsSpeaking(false);
+  }, []);
 
   const resetTranscript = useCallback(() => {
-    console.log('🔄 Resetting transcript and VAD state');
     setTranscript('');
-    setError(null);
     setConfidence(0);
-    setIsSpeaking(false);
-    setVoiceActivity(0);
+    setHasFinishedSpeaking(false);
     finalTranscriptRef.current = '';
-    isStoppingRef.current = false;
-    speechDetectedRef.current = false;
-    lastSpeechTimeRef.current = 0;
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+    }
   }, []);
 
   return {
     isListening,
     transcript,
+    confidence,
     startListening,
     stopListening,
     resetTranscript,
     isSupported,
+    hasFinishedSpeaking,
     error,
-    confidence,
     isSpeaking,
-    voiceActivity
+    voiceActivity,
   };
 };
+
+declare global {
+  interface Window {
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
+  }
+}
