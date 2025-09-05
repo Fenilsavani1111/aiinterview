@@ -181,7 +181,7 @@ const NameEmailModal: React.FC<Props> = ({
           });
           let score = (res.data.matchResult?.overallScore * 100)?.toFixed(2);
           setCvMatch(+score);
-          if (+score < 40) {
+          if (+score < 10) {
             setIsResumeUploading(false);
           } else {
             setIsResumeUploading(false);
@@ -204,7 +204,7 @@ const NameEmailModal: React.FC<Props> = ({
     <div className="min-h-screen flex items-center justify-center bg-gray-900 bg-opacity-95">
       {readyForInterview ? (
         <>
-          {cvMatch >= 0 && cvMatch < 40 ? (
+          {cvMatch >= 0 && cvMatch < 10 ? (
             <div className="fixed inset-0 flex overflow-y-auto flex-grow items-center justify-center bg-gray-900 z-50">
               <div className="max-h-[90vh] w-full max-w-md">
                 <div className="bg-gray-800 p-8 rounded-2xl shadow-2xl w-11/12 max-w-md border border-gray-700 text-center">
@@ -229,7 +229,7 @@ const NameEmailModal: React.FC<Props> = ({
                       {jobData?.jobTitle} interview at this time.
                     </h2>
                     <p className="text-gray-300 text-lg leading-relaxed">
-                      Your resume matches only {cvMatch ?? 40}% of the job
+                      Your resume matches only {cvMatch ?? 10}% of the job
                       requirements at this time.
                     </p>
                   </div>
