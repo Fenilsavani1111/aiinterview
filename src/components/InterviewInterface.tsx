@@ -512,7 +512,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
   }, [currentQuestion, generateQuestionAudio, resetTranscript]);
 
   const handleNextQuestion = async () => {
-    if (!session || !currentQuestion) {
+    if (!session || !currentQuestion || session?.status === "completed") {
       console.log("❌ Not ready to handle answer");
       return;
     }
