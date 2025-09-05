@@ -637,7 +637,9 @@ ${candidateInterview.map(v =>
 
 // get behaviour analysis using python api
 export const getBehaviouralAnalysis = async (
-  video_url: string
+  video_url: string,
+  questionsWithAnswer: any,
+  jobData: any,
 ) => {
   try {
     const response = await fetch(`${import.meta.env.VITE_BEHAVIOUR_API}`, {
@@ -645,7 +647,7 @@ export const getBehaviouralAnalysis = async (
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ video_url: video_url })
+      body: JSON.stringify({ video_url: video_url, questionsWithAnswer: questionsWithAnswer, jobData: jobData })
     })
     let res = await response.json()
     return res

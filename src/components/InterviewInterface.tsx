@@ -240,27 +240,26 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
           import.meta.env.VITE_AIINTERVIEW_API_VIDEO_ENDPOINT
         }/${res.data?.path}`;
         try {
-          let behavioraldata = await getBehaviouralAnalysis(file_url);
+          let questionsWithAnswer = session?.questions?.map((v) => {
+            return {
+              ...v,
+              questionDetails: physicsQuestions?.find(
+                (q) => q.question === v?.question
+              ),
+            };
+          });
+          let behavioraldata = await getBehaviouralAnalysis(
+            file_url,
+            questionsWithAnswer,
+            jobData
+          );
           if (behavioraldata?.report) {
             let report = behavioraldata?.report;
-            let cultural_fit_analysis = report?.cultural_fit_analysis;
-            let overall_behavior_analysis = report?.overall_behavior_analysis;
-            let body_language_analysis = report?.body_language_analysis;
-            delete report.cultural_fit_analysis;
-            delete report.overall_behavior_analysis;
-            delete report.body_language_analysis;
             updateCandidateDetails(
               file_url?.length > 0 ? file_url : null,
               damisession,
               {
-                // ...interviewoverview,
                 ...report,
-                performanceBreakdown: {
-                  // ...interviewoverview?.performanceBreakdown,
-                  culturalFit: cultural_fit_analysis,
-                  behavior: overall_behavior_analysis,
-                  body_language: body_language_analysis ?? {},
-                },
               }
             );
           } else {
