@@ -87,7 +87,7 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
     <div className="max-w-4xl mx-auto">
       <div className="bg-white/70 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 p-8">
         {errorText ? (
-          <div className="text-center mb-8">
+          <div className="mb-8">
             {/* <div className="p-6 bg-gradient-to-br from-green-100 to-blue-100 rounded-full mb-6 w-24 h-24 mx-auto flex items-center justify-center">
           <Award className="w-12 h-12 text-green-600" />
         </div> */}
@@ -101,10 +101,10 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
             <div className="p-6 bg-gradient-to-br from-green-100 to-blue-100 rounded-full mb-6 w-24 h-24 mx-auto flex items-center justify-center">
               <Award className="w-12 h-12 text-green-600" />
             </div>
-            <h2 className="text-3xl font-bold text-gray-800 mb-4">
+            <h2 className="text-center text-3xl font-bold text-gray-800 mb-4">
               Interview Complete!
             </h2>
-            <div className="grid lg:grid-cols-4 gap-8">
+            <div className="grid lg:grid-cols-4 gap-8 items-center !mb-4">
               <div className="lg:col-span-1">
                 <div className="text-center">
                   <div className="bg-gray-200 rounded-full w-24 h-24 mx-auto mb-4 flex items-center justify-center">
@@ -170,24 +170,12 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                         <div className="text-sm text-gray-600">
                           Questions Answered
                         </div>
-                        <div className="flex justify-center mt-2">
-                          {[...Array(5)].map((_, i) => (
-                            <Star
-                              key={i}
-                              className={`h-4 w-4 ${
-                                i < 4
-                                  ? "text-yellow-500 fill-current"
-                                  : "text-gray-300"
-                              }`}
-                            />
-                          ))}
-                        </div>
                       </div>
                     </>
                   )}
                 </div>
 
-                <div className="my-6 grid md:grid-cols-2 gap-6">
+                {/* <div className="my-6 grid md:grid-cols-2 gap-6">
                   <div>
                     <h3 className="font-medium text-gray-900 mb-2">
                       Interview Details
@@ -225,7 +213,7 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                       </div>
                     </div>
                   </div>
-                </div>
+                </div> */}
               </div>
             </div>
             {candidateData?.status === "completed" && (
@@ -478,7 +466,7 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                                     response?.score
                                   )}`}
                                 >
-                                  {response?.score}%
+                                  {response?.score} out of 10
                                 </span>
                               </div>
                               <h3 className="text-lg font-medium text-gray-900 mb-3">
