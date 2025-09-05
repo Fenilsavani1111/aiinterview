@@ -253,13 +253,20 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
             questionsWithAnswer,
             jobData
           );
-          if (behavioraldata?.report) {
-            let report = behavioraldata?.report;
+          if (behavioraldata?.status === "success") {
+            let newbehavioraldata = {
+              ...behavioraldata,
+            };
+            delete newbehavioraldata?.analysis_settings;
+            delete newbehavioraldata?.status;
+            delete newbehavioraldata?.timestamp;
+            delete newbehavioraldata?.token_consumption;
+            delete newbehavioraldata?.video_url;
             updateCandidateDetails(
               file_url?.length > 0 ? file_url : null,
               damisession,
               {
-                ...report,
+                ...newbehavioraldata,
               }
             );
           } else {
