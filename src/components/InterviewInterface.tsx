@@ -745,7 +745,8 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       if (!isCompleted) {
         event.preventDefault();
-        event.returnValue = ""; // required for Chrome/Edge/Firefox
+        event.returnValue =
+          "Your interview is not completed. If you refresh, you will need to give it again. Are you sure you want to leave?"; // required for Chrome/Edge/Firefox
         return "";
       }
     };
