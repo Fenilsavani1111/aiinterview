@@ -30,7 +30,9 @@ export default function ProcessingInterview({
           </h2>
 
           {/* Loader */}
-          <motion.div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+          <div className="w-full flex justify-center items-center">
+            <motion.div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+          </div>
 
           {/* Progress Bar */}
           <div className="w-full bg-gray-200 rounded-lg h-3 mt-6 overflow-hidden">
