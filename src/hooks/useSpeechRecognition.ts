@@ -148,12 +148,16 @@ export const useSpeechRecognition = (): SpeechRecognitionHook => {
         setError(errorMessage);
       }
 
-      setIsListening(false);
+      if (manualStopRef.current) {
+        // manual stop → end session
+        setIsListening(false);
+        return;
+      }
 
-      // Auto-restart for certain errors if we haven't captured much
-      if (shouldRestart && finalTranscriptRef.current.trim().length < 15) {
-        console.log('🔄 Scheduling auto-restart with VAD...');
+      // Auto-restart only for recoverable cases
+      if (shouldRestart) {
         if (!restartTimeoutRef.current) {
+          console.log("🔄 Scheduling auto-restart...");
           restartTimeoutRef.current = window.setTimeout(() => {
             restartTimeoutRef.current = null;
             if (!manualStopRef.current) {
@@ -161,21 +165,24 @@ export const useSpeechRecognition = (): SpeechRecognitionHook => {
             }
           }, 300) as unknown as number;
         }
+      } else {
+        // non-restartable fatal error
+        setIsListening(false);
       }
     };
 
+
     recognitionRef.current.onend = () => {
-      setIsListening(false);
       if (silenceTimerRef.current) {
         clearTimeout(silenceTimerRef.current);
       }
 
-      // If stopListening() was called manually, perform full cleanup.
       if (manualStopRef.current) {
-        // reset reported activity
+        // user manually stopped → cleanup
+        setIsListening(false);
         setVoiceActivity(0);
         setIsSpeaking(false);
-        // Clean up audio monitoring resources when recognition ends
+
         if (rafIdRef.current) {
           cancelAnimationFrame(rafIdRef.current);
           rafIdRef.current = null;
@@ -187,9 +194,7 @@ export const useSpeechRecognition = (): SpeechRecognitionHook => {
         if (audioContextRef.current) {
           try {
             audioContextRef.current.close();
-          } catch (e) {
-            // ignore
-          }
+          } catch { }
           audioContextRef.current = null;
         }
         if (mediaStreamRef.current) {
@@ -197,18 +202,13 @@ export const useSpeechRecognition = (): SpeechRecognitionHook => {
           mediaStreamRef.current = null;
         }
       } else {
-        // recognition ended due to silence or internal restart — restart automatically
-        // ensure only one restart is scheduled at a time
+        // auto-restart path → don't setIsListening(false)
         if (!restartTimeoutRef.current) {
           restartTimeoutRef.current = window.setTimeout(() => {
             restartTimeoutRef.current = null;
             if (!manualStopRef.current) {
-              try {
-                console.log('🔁 Auto-restarting speech recognition to continue across pauses');
-                startListening();
-              } catch (e) {
-                // swallow
-              }
+              console.log("🔁 Auto-restarting speech recognition");
+              startListening();
             }
           }, 250) as unknown as number;
         }
@@ -240,7 +240,7 @@ export const useSpeechRecognition = (): SpeechRecognitionHook => {
         const tick = () => {
           try {
             if (!analyserRef.current || !dataArrayRef.current) return;
-            analyserRef.current.getByteTimeDomainData(dataArrayRef.current);
+            analyserRef.current.getByteTimeDomainData(dataArrayRef.current as Uint8Array<ArrayBuffer>);
             // compute RMS (0..1)
             let sum = 0;
             for (let i = 0; i < dataArrayRef.current.length; i++) {

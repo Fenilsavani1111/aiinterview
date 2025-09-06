@@ -617,7 +617,6 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
       };
       setSession(updatedSession);
 
-      setIsGeneratingAudio(false);
       if (isLastQuestion) {
         setTimeout(() => {
           endInterview(updatedSession);
@@ -626,6 +625,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         // Small delay before allowing next response processing
         setTimeout(() => {
           setIsProcessingResponse(false);
+          setIsGeneratingAudio(false);
         }, 500);
       }
     } catch (error) {
@@ -716,10 +716,11 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
       console.log("🏁 Ending interview");
       setIsLoading(true);
       setInterviewStarted(false);
+      setIsGeneratingAudio(false);
       // setWaitingForAnswer(false);
       // setAudioPlaying(false);
       stopListening();
-      stopAudio();
+      // stopAudio();
       let data = await stopRecording();
       if (updatedSession) {
         let damisession: InterviewSession = {
