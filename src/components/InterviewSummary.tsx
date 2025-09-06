@@ -470,13 +470,13 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                                   {response?.score} out of 10
                                 </span>
                               </div>
-                              <h3 className="text-lg font-medium text-gray-900 mb-3">
+                              <h3 className="text-lg font-medium text-gray-900 mb-3 text-left">
                                 {response?.question}
                               </h3>
                             </div>
                           </div>
 
-                          <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                          <div className="bg-gray-50 p-4 rounded-lg mb-4 text-left">
                             <h4 className="font-medium text-gray-900 mb-2">
                               Candidate Response:
                             </h4>
@@ -485,7 +485,7 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                             </p>
                           </div>
 
-                          <div className="bg-blue-50 p-4 rounded-lg">
+                          <div className="bg-blue-50 p-4 rounded-lg text-left">
                             <h4 className="font-medium text-blue-900 mb-2">
                               AI Analysis:
                             </h4>

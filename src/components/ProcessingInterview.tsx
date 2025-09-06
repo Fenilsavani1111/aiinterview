@@ -17,7 +17,7 @@ export default function ProcessingInterview({
   const progress: number = Math.round((currentStep / steps.length) * 100);
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100 text-gray-900">
+    <div className="flex items-center justify-center min-h-screen bg-transparent text-gray-900">
       <motion.div
         className="bg-white p-8 rounded-2xl shadow-lg w-[90%] max-w-md text-center border border-gray-200"
         initial={{ opacity: 0, scale: 0.9 }}
@@ -25,21 +25,17 @@ export default function ProcessingInterview({
         transition={{ duration: 0.4 }}
       >
         <>
-          <h2 className="text-2xl font-bold text-purple-600 mb-6">
+          <h2 className="text-2xl font-bold text-indigo-600 mb-6">
             Processing Your Interview
           </h2>
 
           {/* Loader */}
-          <motion.div
-            className="w-16 h-16 border-4 border-gray-300 border-t-purple-500 rounded-full mx-auto"
-            animate={{ rotate: 360 }}
-            transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-          />
+          <motion.div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
 
           {/* Progress Bar */}
           <div className="w-full bg-gray-200 rounded-lg h-3 mt-6 overflow-hidden">
             <motion.div
-              className="h-full bg-gradient-to-r from-purple-500 to-pink-500"
+              className="h-full bg-gradient-to-r from-indigo-500 to-purple-600"
               initial={{ width: "0%" }}
               animate={{ width: `${progress}%` }}
               transition={{ ease: "easeInOut", duration: 0.5 }}
