@@ -355,7 +355,7 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                           AI Evaluation Summary
                         </h2>
                         <div className="bg-blue-50 p-6 rounded-xl mb-6">
-                          <p className="text-gray-700 leading-relaxed">
+                          <p className="text-gray-700 leading-relaxed text-left">
                             {candidateData?.aiEvaluationSummary?.summary}
                           </p>
                         </div>
@@ -373,7 +373,9 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                                     className="text-sm text-gray-700 flex items-start space-x-2"
                                   >
                                     <div className="w-1.5 h-1.5 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
-                                    <span>{strength}</span>
+                                    <span className="text-left">
+                                      {strength}
+                                    </span>
                                   </li>
                                 )
                               )}
@@ -393,7 +395,9 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                                     className="text-sm text-gray-700 flex items-start space-x-2"
                                   >
                                     <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-                                    <span>{improvement}</span>
+                                    <span className="text-left">
+                                      {improvement}
+                                    </span>
                                   </li>
                                 )
                               )}
@@ -550,7 +554,7 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                                     }}
                                   ></div>
                                 </div>
-                                <p className="text-sm text-gray-600">
+                                <p className="text-sm text-gray-600 text-left">
                                   {data.summary}
                                 </p>
                               </div>
@@ -609,7 +613,7 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                           <h3 className="font-medium text-green-800 mb-2">
                             Positive Indicators
                           </h3>
-                          <ul className="text-sm text-green-700 space-y-1">
+                          <ul className="text-sm text-green-700 space-y-1 text-left">
                             {candidateData?.video_analysis_insights?.positive_indicators
                               ?.slice(1)
                               ?.map((item, i) => (
@@ -622,7 +626,7 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                           <h3 className="font-medium text-blue-800 mb-2">
                             Areas for Improvement
                           </h3>
-                          <ul className="text-sm text-blue-700 space-y-1">
+                          <ul className="text-sm text-blue-700 space-y-1 text-left">
                             {candidateData?.video_analysis_insights?.areas_for_improvement
                               ?.slice(1)
                               ?.map((item, i) => (
@@ -635,7 +639,7 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                           <h3 className="font-medium text-yellow-800 mb-2">
                             Recommendations
                           </h3>
-                          <ul className="text-sm text-yellow-700 space-y-1">
+                          <ul className="text-sm text-yellow-700 space-y-1 text-left">
                             {candidateData?.video_analysis_insights?.recommendations?.map(
                               (item, i) => (
                                 <li key={i}>• {item}</li>

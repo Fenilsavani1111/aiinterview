@@ -53,81 +53,81 @@ let Mockresponse = {
       isRequired: true,
       order: 12,
     },
-    {
-      id: 13,
-      question:
-        "Can you describe a time when you had to troubleshoot a web application issue?",
-      type: "behavioral",
-      difficulty: "medium",
-      expectedDuration: 180,
-      category: "Troubleshooting",
-      suggestedAnswers: [
-        "I encountered a bug that caused a page to not load properly, and I used the browser's developer tools to identify the issue.",
-        "I resolved a compatibility issue by testing the application on different browsers and applying necessary fixes.",
-      ],
-      isRequired: true,
-      order: 13,
-    },
-    {
-      id: 14,
-      question:
-        "What is your experience with version control systems like Git?",
-      type: "technical",
-      difficulty: "easy",
-      expectedDuration: 90,
-      category: "Version Control",
-      suggestedAnswers: [
-        "I have used Git for version control in my projects, including branching and merging.",
-        "I understand how to commit changes and resolve merge conflicts.",
-      ],
-      isRequired: true,
-      order: 14,
-    },
-    {
-      id: 15,
-      question:
-        "How do you stay updated with the latest web development trends and technologies?",
-      type: "behavioral",
-      difficulty: "easy",
-      expectedDuration: 120,
-      category: "Professional Development",
-      suggestedAnswers: [
-        "I follow web development blogs and forums.",
-        "I participate in online courses and webinars.",
-      ],
-      isRequired: true,
-      order: 15,
-    },
-    {
-      id: 16,
-      question: "What role does accessibility play in web development?",
-      type: "technical",
-      difficulty: "medium",
-      expectedDuration: 120,
-      category: "Web Development",
-      suggestedAnswers: [
-        "Accessibility ensures that web applications are usable by people with disabilities.",
-        "I implement ARIA roles and ensure proper semantic HTML.",
-      ],
-      isRequired: true,
-      order: 16,
-    },
+    // {
+    //   id: 13,
+    //   question:
+    //     "Can you describe a time when you had to troubleshoot a web application issue?",
+    //   type: "behavioral",
+    //   difficulty: "medium",
+    //   expectedDuration: 180,
+    //   category: "Troubleshooting",
+    //   suggestedAnswers: [
+    //     "I encountered a bug that caused a page to not load properly, and I used the browser's developer tools to identify the issue.",
+    //     "I resolved a compatibility issue by testing the application on different browsers and applying necessary fixes.",
+    //   ],
+    //   isRequired: true,
+    //   order: 13,
+    // },
+    // {
+    //   id: 14,
+    //   question:
+    //     "What is your experience with version control systems like Git?",
+    //   type: "technical",
+    //   difficulty: "easy",
+    //   expectedDuration: 90,
+    //   category: "Version Control",
+    //   suggestedAnswers: [
+    //     "I have used Git for version control in my projects, including branching and merging.",
+    //     "I understand how to commit changes and resolve merge conflicts.",
+    //   ],
+    //   isRequired: true,
+    //   order: 14,
+    // },
+    // {
+    //   id: 15,
+    //   question:
+    //     "How do you stay updated with the latest web development trends and technologies?",
+    //   type: "behavioral",
+    //   difficulty: "easy",
+    //   expectedDuration: 120,
+    //   category: "Professional Development",
+    //   suggestedAnswers: [
+    //     "I follow web development blogs and forums.",
+    //     "I participate in online courses and webinars.",
+    //   ],
+    //   isRequired: true,
+    //   order: 15,
+    // },
+    // {
+    //   id: 16,
+    //   question: "What role does accessibility play in web development?",
+    //   type: "technical",
+    //   difficulty: "medium",
+    //   expectedDuration: 120,
+    //   category: "Web Development",
+    //   suggestedAnswers: [
+    //     "Accessibility ensures that web applications are usable by people with disabilities.",
+    //     "I implement ARIA roles and ensure proper semantic HTML.",
+    //   ],
+    //   isRequired: true,
+    //   order: 16,
+    // },
   ],
   candidateId: "19",
 };
 
 const App: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
-  // const [fetchQueData, setFetchQueData] = useState(Mockresponse);
-  // const [interviewQuestions, setInterviewQuestions] = useState<any[]>([
-  //   ...Mockresponse.questions,
-  // ]);
-  // const [candidateId, setCandidateId] = useState<string | null>(
-  //   Mockresponse.candidateId
-  // );
-  const [fetchQueData, setFetchQueData] = useState(null);
-  const [interviewQuestions, setInterviewQuestions] = useState<any[]>([]);
-  const [candidateId, setCandidateId] = useState<string | null>(null);
+  const [fetchQueData, setFetchQueData] = useState(Mockresponse);
+  const [interviewQuestions, setInterviewQuestions] = useState<any[]>([
+    ...Mockresponse.questions,
+  ]);
+  const [candidateId, setCandidateId] = useState<string | null>(
+    Mockresponse.candidateId
+  );
+  // const [fetchQueData, setFetchQueData] = useState(null);
+  // const [interviewQuestions, setInterviewQuestions] = useState<any[]>([]);
+  // const [candidateId, setCandidateId] = useState<string | null>(null);
   const [isModalLoading, setIsModalLoading] = useState(false);
   const [modalError, setModalError] = useState(null);
   const [jobData, setJobData] = useState<JobPost | null>(null);
@@ -243,7 +243,7 @@ const App: React.FC = () => {
         </div>
       ) : (
         <>
-          {!jobData && <NoQuestionData />}
+          {/* {!jobData && <NoQuestionData />} */}
           {fetchQueData ? (
             interviewQuestions.length === 0 ? (
               <NoQuestionData />
