@@ -113,122 +113,122 @@ const NameEmailModal: React.FC<Props> = ({
     try {
       setIsResumeUploading(true);
       if (jobData) {
-        let fileContent = "";
-        const arrayBuffer = await file.arrayBuffer();
-        if (file.type.includes("pdf")) {
-          const pdf = await pdfjsLib.getDocument({
-            data: arrayBuffer,
-          }).promise;
-          let fullText = "";
-          for (let i = 1; i <= pdf.numPages; i++) {
-            const page = await pdf.getPage(i);
-            const content = await page.getTextContent();
-            fullText +=
-              content.items
-                .map((item) => ("str" in item ? item.str : ""))
-                .join(" ") + "\n";
-          }
-          fileContent = fullText;
-        } else if (
-          file.type.includes("word") ||
-          file.type.includes("document") ||
-          file.type.includes("docx") ||
-          file.type.includes("doc")
-        ) {
-          const result = await mammoth.extractRawText({ arrayBuffer });
-          fileContent = `📋 Extracted Information:\n${result.value}`;
-        } else {
-          fileContent = `Unsupported file type`;
-        }
-        // check resume parser (compare jobpost and resume) and get popup fields form resume
-        let cvparserdata = await getCvMatchWithJD(
+        // let fileContent = "";
+        // const arrayBuffer = await file.arrayBuffer();
+        // if (file.type.includes("pdf")) {
+        //   const pdf = await pdfjsLib.getDocument({
+        //     data: arrayBuffer,
+        //   }).promise;
+        //   let fullText = "";
+        //   for (let i = 1; i <= pdf.numPages; i++) {
+        //     const page = await pdf.getPage(i);
+        //     const content = await page.getTextContent();
+        //     fullText +=
+        //       content.items
+        //         .map((item) => ("str" in item ? item.str : ""))
+        //         .join(" ") + "\n";
+        //   }
+        //   fileContent = fullText;
+        // } else if (
+        //   file.type.includes("word") ||
+        //   file.type.includes("document") ||
+        //   file.type.includes("docx") ||
+        //   file.type.includes("doc")
+        // ) {
+        //   const result = await mammoth.extractRawText({ arrayBuffer });
+        //   fileContent = `📋 Extracted Information:\n${result.value}`;
+        // } else {
+        //   fileContent = `Unsupported file type`;
+        // }
+        // // check resume parser (compare jobpost and resume) and get popup fields form resume
+        // let cvparserdata = await getCvMatchWithJD(
+        //   {
+        //     jobTitle: jobData?.jobTitle,
+        //     company: jobData?.company,
+        //     department: jobData?.department,
+        //     location: jobData?.location,
+        //     jobType: jobData?.jobType,
+        //     experienceLevel: jobData?.experienceLevel,
+        //     jobDescription: jobData?.jobDescription,
+        //     salaryMin: jobData?.salaryMin,
+        //     salaryMax: jobData?.salaryMax,
+        //     salaryCurrency: jobData?.salaryCurrency,
+        //     requirements: jobData?.requirements ?? [],
+        //     responsibilities: jobData?.responsibilities ?? [],
+        //     skills: jobData?.skills ?? [],
+        //     questions: [],
+        //   },
+        //   fileContent
+        // );
+        // let resumedata = cvparserdata?.job_data;
+        // let matchData = cvparserdata?.match;
+        // console.log("matchData", matchData);
+        // if (matchData?.overallMatchPercentage >= 0) {
+        //   setCvMatch(matchData?.overallMatchPercentage ?? 0);
+        //   if (matchData?.overallMatchPercentage < 60)
+        //     setIsResumeUploading(false);
+        //   else {
+        //     let newskills = [];
+        //     if (values.skills?.length === 0) {
+        //       newskills = resumedata?.skills ?? [];
+        //     } else if (values.skills?.length === 1) {
+        //       newskills =
+        //         values.skills?.[0]?.length > 0
+        //           ? [...values.skills]
+        //           : resumedata?.skills ?? [];
+        //     } else if (values.skills?.length >= 2) {
+        //       newskills = resumedata?.skills ?? [];
+        //     }
+        //     setValues({
+        //       ...values,
+        //       name:
+        //         values.name?.length > 0 ? values.name : resumedata?.name ?? "",
+        //       email:
+        //         values.email?.length > 0
+        //           ? values.email
+        //           : resumedata?.email ?? "",
+        //       mobile:
+        //         values.mobile?.length > 0
+        //           ? values.mobile
+        //           : resumedata?.phone ?? "",
+        //       designation:
+        //         values.designation?.length > 0
+        //           ? values.designation
+        //           : resumedata?.designation ?? "",
+        //       experienceLevel:
+        //         values.experienceLevel?.length > 0
+        //           ? values.experienceLevel
+        //           : resumedata?.experienceLevel ?? "",
+        //       location:
+        //         values.location?.length > 0
+        //           ? values.location
+        //           : resumedata?.location ?? "",
+        //       skills: newskills,
+        //     });
+        //upload resume to cloud
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("fileName", `${values.name}`);
+        const res = await axios.post(
+          `${import.meta.env.VITE_AIINTERVIEW_API_KEY}/jobposts/upload-resume`,
+          formData,
           {
-            jobTitle: jobData?.jobTitle,
-            company: jobData?.company,
-            department: jobData?.department,
-            location: jobData?.location,
-            jobType: jobData?.jobType,
-            experienceLevel: jobData?.experienceLevel,
-            jobDescription: jobData?.jobDescription,
-            salaryMin: jobData?.salaryMin,
-            salaryMax: jobData?.salaryMax,
-            salaryCurrency: jobData?.salaryCurrency,
-            requirements: jobData?.requirements ?? [],
-            responsibilities: jobData?.responsibilities ?? [],
-            skills: jobData?.skills ?? [],
-            questions: [],
-          },
-          fileContent
-        );
-        let resumedata = cvparserdata?.job_data;
-        let matchData = cvparserdata?.match;
-        console.log("matchData", matchData);
-        if (matchData?.overallMatchPercentage >= 0) {
-          setCvMatch(matchData?.overallMatchPercentage ?? 0);
-          if (matchData?.overallMatchPercentage < 60)
-            setIsResumeUploading(false);
-          else {
-            let newskills = [];
-            if (values.skills?.length === 0) {
-              newskills = resumedata?.skills ?? [];
-            } else if (values.skills?.length === 1) {
-              newskills =
-                values.skills?.[0]?.length > 0
-                  ? [...values.skills]
-                  : resumedata?.skills ?? [];
-            } else if (values.skills?.length >= 2) {
-              newskills = resumedata?.skills ?? [];
-            }
-            setValues({
-              ...values,
-              name:
-                values.name?.length > 0 ? values.name : resumedata?.name ?? "",
-              email:
-                values.email?.length > 0
-                  ? values.email
-                  : resumedata?.email ?? "",
-              mobile:
-                values.mobile?.length > 0
-                  ? values.mobile
-                  : resumedata?.phone ?? "",
-              designation:
-                values.designation?.length > 0
-                  ? values.designation
-                  : resumedata?.designation ?? "",
-              experienceLevel:
-                values.experienceLevel?.length > 0
-                  ? values.experienceLevel
-                  : resumedata?.experienceLevel ?? "",
-              location:
-                values.location?.length > 0
-                  ? values.location
-                  : resumedata?.location ?? "",
-              skills: newskills,
-            });
-            //upload resume to cloud
-            const formData = new FormData();
-            formData.append("file", file);
-            formData.append("fileName", `${values.name}`);
-            const res = await axios.post(
-              `${
-                import.meta.env.VITE_AIINTERVIEW_API_KEY
-              }/jobposts/upload-resume`,
-              formData,
-              {
-                headers: { "Content-Type": "multipart/form-data" },
-              }
-            );
-            if (res.data) {
-              if (res.data?.file_url?.length > 0)
-                setFieldValue("resumeUrl", res?.data?.file_url);
-              setIsResumeUploading(false);
-            }
+            headers: { "Content-Type": "multipart/form-data" },
           }
-        } else {
-          setCvMatch(-1);
+        );
+        if (res.data) {
+          if (res.data?.file_url?.length > 0) {
+            setFieldValue("resumeUrl", res?.data?.file_url);
+            setCvMatch(60);
+          }
           setIsResumeUploading(false);
-          setFieldError("resumeUrl", "Please try again...");
         }
+        //   }
+        // } else {
+        //   setCvMatch(-1);
+        //   setIsResumeUploading(false);
+        //   setFieldError("resumeUrl", "Please try again...");
+        // }
       }
     } catch (error) {
       setIsResumeUploading(false);

@@ -16,12 +16,12 @@ import { useAudioPlayer } from "../hooks/useAudioPlayer";
 import { useCamera } from "../hooks/useCamera";
 import {
   getBehaviouralAnalysis,
-  getInterviewOverviewWithAI,
   processPhysicsQuestion,
 } from "../services/apiService";
 import { elevenLabsService } from "../services/elevenLabsService";
 import axios from "axios";
 import { JobPost } from "./NameEmailModal";
+import ProcessingInterview from "./ProcessingInterview";
 
 export interface InterviewSession {
   id: string;
@@ -148,6 +148,8 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
   const isLastQuestion =
     session?.currentQuestionIndex === physicsQuestions.length - 1;
   const currentQuestion = physicsQuestions[session?.currentQuestionIndex ?? -1];
+  const [currentStep, setCurrentStep] = useState<number>(0);
+  const [isCompleted, setIsCompleted] = useState(false);
 
   let speechError = "";
   const {
@@ -218,6 +220,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
     damisession: InterviewSession
   ) => {
     try {
+      setCurrentStep(0);
       setIsLoading(true);
       const timestamp = Date.now();
       const formData = new FormData();
@@ -248,6 +251,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
               ),
             };
           });
+          setCurrentStep(1);
           let behavioraldata = await getBehaviouralAnalysis(
             file_url,
             questionsWithAnswer,
@@ -262,6 +266,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
             delete newbehavioraldata?.timestamp;
             delete newbehavioraldata?.token_consumption;
             delete newbehavioraldata?.video_url;
+            setCurrentStep(2);
             updateCandidateDetails(
               file_url?.length > 0 ? file_url : null,
               damisession,
@@ -270,23 +275,35 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
               }
             );
           } else {
+            setCurrentStep(0);
             setIsLoading(false);
-            setErrorText("Sorry, Unable to get behavioral analysis");
+            setErrorText(
+              "Sorry, unable to analyze the video at this time. Please try again."
+            );
             console.log("python api", behavioraldata);
           }
         } catch (error) {
+          setCurrentStep(0);
           setIsLoading(false);
-          setErrorText("Sorry, Unable to get behavioral analysis");
+          setErrorText(
+            "Sorry, unable to analyze the video at this time. Please try again."
+          );
           console.log("python api", error);
         }
         setIsLoading(false);
       } else {
+        setCurrentStep(0);
         setIsLoading(false);
-        setErrorText("Sorry, Unable to upload interview view");
+        setErrorText(
+          "Sorry, unable to upload the interview video. Please try again."
+        );
       }
     } catch (error) {
+      setCurrentStep(0);
       console.error("Error uploading resume file:", error);
-      setErrorText("Sorry, Unable to upload interview view");
+      setErrorText(
+        "Sorry, unable to upload the interview video. Please try again."
+      );
       setIsLoading(false);
     }
   };
@@ -404,23 +421,22 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         }
       );
       if (response.data) {
+        setIsCompleted(true);
         setCandidateData(response.data?.candidate ?? null);
         // You can handle the response here (e.g., save data, show a message, etc.)
         setIsLoading(false);
+        setCurrentStep(3);
         console.log("update candidate details response:", response.data);
       } else {
-        setErrorText(
-          "Sorry, please try again with different email or contact to admin"
-        );
+        setErrorText("Failed to save analysis data. Try a different email.");
+        setCurrentStep(0);
         setIsLoading(false);
       }
     } catch (error: any) {
       setIsLoading(false);
       // Handle error (show error message, etc.)
       console.error("Error joining job link:", error);
-      setErrorText(
-        "Sorry, please try again with different email or contact to admin"
-      );
+      setErrorText("Failed to save analysis data. Try a different email.");
     }
   };
 
@@ -724,6 +740,24 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
     [session, stopListening, stopAudio, stopRecording]
   );
 
+  // Always ask confirmation on refresh/close until process is completed
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!isCompleted) {
+        event.preventDefault();
+        event.returnValue = ""; // required for Chrome/Edge/Firefox
+        return "";
+      }
+    };
+
+    if (!isCompleted) {
+      window.addEventListener("beforeunload", handleBeforeUnload);
+    }
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [isCompleted]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-blue-50 to-purple-100">
       <div className="container mx-auto px-4 py-6 max-w-7xl">
@@ -751,14 +785,15 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
 
         {isLoading ? (
           <div className="max-w-2xl mx-auto">
-            <div className="bg-white/70 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 p-8">
+            {/* <div className="bg-white/70 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 p-8">
               <div className="flex flex-col justify-center items-center py-12">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                 <span className="mt-3 text-gray-600">
                   Please wait do not refresh page...
                 </span>
               </div>
-            </div>
+            </div> */}
+            <ProcessingInterview currentStep={currentStep} />
           </div>
         ) : !interviewStarted && !session?.status ? (
           /* Pre-Interview Setup */

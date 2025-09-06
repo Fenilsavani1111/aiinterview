@@ -1,21 +1,7 @@
 import React, { useState } from "react";
-import {
-  Award,
-  Clock,
-  BarChart3,
-  RefreshCw,
-  TrendingUp,
-  Star,
-  Calendar,
-  MessageSquare,
-  Eye,
-  Video,
-  Mic,
-  Play,
-} from "lucide-react";
-import { useCamera } from "../hooks/useCamera";
+import { Award, TrendingUp, MessageSquare, Eye, XCircle } from "lucide-react";
 import { Candidate, InterviewSession } from "./InterviewInterface";
-import moment from "moment";
+import { motion } from "framer-motion";
 
 interface InterviewSummaryProps {
   session: InterviewSession;
@@ -84,26 +70,41 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-5xl mx-auto">
       <div className="bg-white/70 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 p-8">
         {errorText ? (
-          <div className="mb-8">
-            {/* <div className="p-6 bg-gradient-to-br from-green-100 to-blue-100 rounded-full mb-6 w-24 h-24 mx-auto flex items-center justify-center">
-          <Award className="w-12 h-12 text-green-600" />
-        </div> */}
-            <h2 className="text-3xl font-bold text-gray-800 mb-4">
-              Interview Incomplete
-            </h2>
-            <p className="text-gray-600 text-lg">{errorText}</p>
+          <div className="mb-8 text-center">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.6, type: "spring" }}
+            >
+              <div className="p-6 bg-gradient-to-br from-red-400 to-red-200 rounded-full mb-6 w-24 h-24 mx-auto flex items-center justify-center">
+                <XCircle className="w-12 h-12 text-red-600" />
+              </div>
+              <h2 className="text-center text-3xl font-bold text-gray-800 mb-4">
+                Interview Incomplete
+              </h2>
+              <p className="text-gray-600">{errorText}</p>
+            </motion.div>
           </div>
         ) : (
           <div className="text-center mb-8">
-            <div className="p-6 bg-gradient-to-br from-green-100 to-blue-100 rounded-full mb-6 w-24 h-24 mx-auto flex items-center justify-center">
-              <Award className="w-12 h-12 text-green-600" />
-            </div>
-            <h2 className="text-center text-3xl font-bold text-gray-800 mb-4">
-              Interview Complete!
-            </h2>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.6, type: "spring" }}
+            >
+              <div className="p-6 bg-gradient-to-br from-green-100 to-blue-100 rounded-full mb-6 w-24 h-24 mx-auto flex items-center justify-center">
+                <Award className="w-12 h-12 text-green-600" />
+              </div>
+              <h2 className="text-center text-3xl font-bold text-gray-800 mb-4">
+                Interview Complete!
+              </h2>
+              <p className="text-gray-600 text-center">
+                Your interview has been successfully processed and saved.
+              </p>
+            </motion.div>
             <div className="grid lg:grid-cols-4 gap-8 items-center !mb-4">
               <div className="lg:col-span-1">
                 <div className="text-center">
