@@ -148,6 +148,7 @@ export const useSpeechRecognition = (): SpeechRecognitionHook => {
         setError(errorMessage);
       }
 
+      setIsListening(false);
 
       // Auto-restart for certain errors if we haven't captured much
       if (shouldRestart && finalTranscriptRef.current.trim().length < 15) {
@@ -160,8 +161,6 @@ export const useSpeechRecognition = (): SpeechRecognitionHook => {
             }
           }, 300) as unknown as number;
         }
-      } else {
-        setIsListening(false);
       }
     };
 

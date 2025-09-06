@@ -358,7 +358,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
       let newQuestions: any[] = [];
       physicsQuestions.map((ques: any) => {
         let question = { ...ques };
-        let findquesResp = session?.questions?.find(
+        let findquesResp = damisession?.questions?.find(
           (item) => item.question === ques?.question
         );
         newQuestions.push({
@@ -404,7 +404,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
             interviewDate: new Date(),
             hasRecording: videolink ? true : false,
             questions: newQuestions,
-            attemptedQuestions: session?.questions?.length ?? 0,
+            attemptedQuestions: damisession?.questions?.length ?? 0,
             overallScore: averageScore,
             totalScore: totalScore,
             grade: gradeInfo?.grade,
