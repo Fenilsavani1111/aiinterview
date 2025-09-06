@@ -213,7 +213,9 @@ const App: React.FC = () => {
         setFetchQueData(response.data);
         document.title = response.data?.jobTitle ?? "AI Interview"; // Set page title
         if (response.data.questions && Array.isArray(response.data.questions)) {
-          setInterviewQuestions(response.data.questions);
+          let dummyquestions = [...response.data.questions];
+          dummyquestions = dummyquestions.sort((a, b) => a.id - b.id);
+          setInterviewQuestions([...dummyquestions]);
           setCandidateId(response.data.candidateId);
         }
         setIsModalLoading(false);
