@@ -721,7 +721,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
       // setAudioPlaying(false);
       stopListening();
       // stopAudio();
-      let data = await stopRecording();
+      stopRecording();
       if (updatedSession) {
         let damisession: InterviewSession = {
           ...updatedSession,
@@ -729,9 +729,9 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
           status: "completed",
         };
         if (damisession?.questions && damisession?.questions?.length > 0) {
-          if (data?.blob) {
-            uploadinterviewvideo(data.blob, damisession);
-          }
+          // if (data?.blob) {
+          //   uploadinterviewvideo(data.blob, damisession);
+          // }
         }
         setSession({
           ...damisession,

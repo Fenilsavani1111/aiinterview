@@ -62,16 +62,16 @@ let Mockresponse = {
 
 const App: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
-  // const [fetchQueData, setFetchQueData] = useState(Mockresponse);
-  // const [interviewQuestions, setInterviewQuestions] = useState<any[]>([
-  //   ...Mockresponse.questions,
-  // ]);
-  // const [candidateId, setCandidateId] = useState<string | null>(
-  //   Mockresponse.candidateId
-  // );
-  const [fetchQueData, setFetchQueData] = useState(null);
-  const [interviewQuestions, setInterviewQuestions] = useState<any[]>([]);
-  const [candidateId, setCandidateId] = useState<string | null>(null);
+  const [fetchQueData, setFetchQueData] = useState(Mockresponse);
+  const [interviewQuestions, setInterviewQuestions] = useState<any[]>([
+    ...Mockresponse.questions,
+  ]);
+  const [candidateId, setCandidateId] = useState<string | null>(
+    Mockresponse.candidateId
+  );
+  // const [fetchQueData, setFetchQueData] = useState(null);
+  // const [interviewQuestions, setInterviewQuestions] = useState<any[]>([]);
+  // const [candidateId, setCandidateId] = useState<string | null>(null);
   const [isModalLoading, setIsModalLoading] = useState(false);
   const [modalError, setModalError] = useState(null);
   const [jobData, setJobData] = useState<JobPost | null>(null);
@@ -187,7 +187,7 @@ const App: React.FC = () => {
         </div>
       ) : (
         <>
-          {!jobData && <NoQuestionData />}
+          {/* {!jobData && <NoQuestionData />} */}
           {fetchQueData ? (
             interviewQuestions.length === 0 ? (
               <NoQuestionData />

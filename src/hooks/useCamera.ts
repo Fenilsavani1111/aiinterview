@@ -1,11 +1,12 @@
 import axios from "axios";
 import { useState, useRef, useCallback, useEffect } from "react";
 
-type StartRecordingType = { blob: Blob };
+type StartRecordingType = { blob?: Blob; url?: string };
 
 interface CameraHook {
   stream: MediaStream | null;
   isRecording: boolean;
+  uploadProgress: number;
   startCamera: () => Promise<void>;
   stopCamera: () => void;
   startRecording: () => Promise<StartRecordingType | null>;
@@ -17,342 +18,226 @@ export const useCamera = (): CameraHook => {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
-  const resolveBlobRef = useRef<((value: StartRecordingType) => void) | null>(
-    null
-  );
 
-  // Keep reference to stream for cleanup
+  // S3 multipart upload refs
+  const uploadKeyRef = useRef<string>("");
+  const uploadPartNumberRef = useRef<number>(1);
+
+  // Upload control
+  const chunkBufferRef = useRef<Blob[]>([]);
+  const uploadTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isStoppingRef = useRef(false);
+
   useEffect(() => {
     streamRef.current = stream;
   }, [stream]);
 
-  // Cleanup on unmount
   useEffect(() => {
-    return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => {
-          track.stop();
-        });
-      }
-      if (
-        mediaRecorderRef.current &&
-        mediaRecorderRef.current.state !== "inactive"
-      ) {
-        mediaRecorderRef.current.stop();
-      }
-    };
+    return () => stopCamera();
   }, []);
 
   const startCamera = useCallback(async () => {
     try {
       setError(null);
-      console.log("Starting camera...");
+      if (streamRef.current) stopCamera();
 
-      // Stop existing stream if any
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
-        setStream(null);
-        streamRef.current = null;
-      }
-
-      // Check if getUserMedia is supported
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error("Camera access not supported in this browser");
-      }
-
-      // Request camera and microphone access
-      const constraints = {
-        video: {
-          width: { ideal: 1280, min: 640 },
-          height: { ideal: 720, min: 480 },
-          facingMode: "user",
-        },
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 44100,
-        },
-      };
-
-      console.log("Requesting media with constraints:", constraints);
-      const mediaStream = await navigator.mediaDevices.getUserMedia(
-        constraints
-      );
-
-      console.log("Media stream obtained:", {
-        videoTracks: mediaStream.getVideoTracks().length,
-        audioTracks: mediaStream.getAudioTracks().length,
-        active: mediaStream.active,
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 1280, height: 720, facingMode: "user" },
+        audio: true,
       });
 
-      // Add event listeners for track events
-      mediaStream.getVideoTracks().forEach((track) => {
-        console.log("Video track:", track.label, track.readyState);
-        track.addEventListener("ended", () => {
-          console.log("Video track ended");
-          setError("Camera disconnected. Please refresh and try again.");
-        });
-
-        track.addEventListener("mute", () => {
-          console.log("Video track muted");
-        });
-
-        track.addEventListener("unmute", () => {
-          console.log("Video track unmuted");
-        });
-      });
-
-      mediaStream.getAudioTracks().forEach((track) => {
-        console.log("Audio track:", track.label, track.readyState);
-        track.addEventListener("ended", () => {
-          console.log("Audio track ended");
-        });
-      });
-
-      // Set stream
       setStream(mediaStream);
       streamRef.current = mediaStream;
-      console.log("Camera started successfully");
     } catch (err: any) {
-      console.error("Camera access error:", err);
-      let errorMessage = "Failed to access camera";
-
-      if (err.name === "NotAllowedError") {
-        errorMessage =
-          "Camera access denied. Please allow camera permissions and refresh the page.";
-      } else if (err.name === "NotFoundError") {
-        errorMessage =
-          "No camera found. Please connect a camera and try again.";
-      } else if (err.name === "NotReadableError") {
-        errorMessage = "Camera is already in use by another application.";
-      } else if (err.name === "OverconstrainedError") {
-        errorMessage =
-          "Camera constraints not supported. Trying with basic settings...";
-
-        // Try with basic constraints
-        try {
-          console.log("Trying with basic constraints...");
-          const basicStream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: true,
-          });
-          setStream(basicStream);
-          streamRef.current = basicStream;
-          console.log("Camera started with basic settings");
-          return;
-        } catch (basicErr) {
-          console.error("Basic constraints also failed:", basicErr);
-          errorMessage = "Failed to start camera even with basic settings.";
-        }
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-
-      setError(errorMessage);
+      console.error("Camera error:", err);
+      setError(err.message || "Failed to start camera");
     }
   }, []);
 
   const stopCamera = useCallback(() => {
-    console.log("Stopping camera...");
-
-    // Stop recording first
-    if (mediaRecorderRef.current && isRecording) {
-      try {
-        mediaRecorderRef.current.stop();
-      } catch (e) {
-        console.error("Error stopping recorder:", e);
-      }
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state !== "inactive"
+    ) {
+      mediaRecorderRef.current.stop();
     }
-
-    // Stop all tracks
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => {
-        console.log("Stopping track:", track.kind, track.label);
-        track.stop();
-      });
+      streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     }
-
     setStream(null);
     setIsRecording(false);
-    setError(null);
     mediaRecorderRef.current = null;
-  }, [isRecording]);
+  }, []);
 
-  const startRecording =
-    useCallback(async (): Promise<StartRecordingType | null> => {
-      console.log("Starting recording...");
+  const initS3Upload = useCallback(async () => {
+    try {
+      const res = await axios.post(
+        "http://localhost:5000/api/jobposts/start-upload"
+      );
+      uploadKeyRef.current = res.data.key;
+      uploadPartNumberRef.current = 1;
+    } catch (err) {
+      console.error("Failed to initialize S3 upload", err);
+      setError("Failed to start S3 upload");
+    }
+  }, []);
 
-      if (!streamRef.current || !streamRef.current.active) {
-        const err = "No camera stream available for recording";
-        console.error(err);
-        setError(err);
+  const uploadChunk = useCallback(async (chunk: Blob, partNumber: number) => {
+    try {
+      const formData = new FormData();
+      formData.append("chunk", chunk);
+      formData.append("key", uploadKeyRef.current);
+      formData.append("partNumber", partNumber.toString());
+
+      await axios.post(
+        "http://localhost:5000/api/jobposts/upload-part",
+        formData,
+        {
+          onUploadProgress: (progressEvent) => {
+            const percent = Math.round(
+              (progressEvent.loaded * 100) / (progressEvent.total || 1)
+            );
+            setUploadProgress(percent);
+          },
+        }
+      );
+
+      console.log(`✅ Uploaded part ${partNumber}`);
+    } catch (err) {
+      console.error("❌ Chunk upload failed:", err);
+      setError("Chunk upload failed");
+    }
+  }, []);
+
+  const completeS3Upload = useCallback(async () => {
+    try {
+      const res = await axios.post(
+        "http://localhost:5000/api/jobposts/complete-upload",
+        { key: uploadKeyRef.current }
+      );
+
+      setUploadProgress(100);
+      return res.data.url;
+    } catch (err) {
+      console.error("Failed to complete S3 upload", err);
+      setError("Failed to complete S3 upload");
+      return null;
+    }
+  }, []);
+
+  const startRecording = useCallback(
+    async (): Promise<StartRecordingType | null> => {
+      if (!streamRef.current) {
+        setError("No camera stream available");
         return null;
       }
 
-      // Check if stream has both video and audio tracks
-      const videoTracks = streamRef.current.getVideoTracks();
-      const audioTracks = streamRef.current.getAudioTracks();
+      await initS3Upload();
 
-      console.log("Stream tracks for recording:", {
-        video: videoTracks.length,
-        audio: audioTracks.length,
-        videoActive: videoTracks.filter((t) => t.readyState === "live").length,
-        audioActive: audioTracks.filter((t) => t.readyState === "live").length,
+      recordedChunksRef.current = [];
+      chunkBufferRef.current = [];
+      isStoppingRef.current = false;
+
+      let blobResolve: ((value: StartRecordingType) => void) | null = null;
+
+      const blobPromise = new Promise<StartRecordingType>((resolve) => {
+        blobResolve = resolve;
       });
 
-      if (videoTracks.length === 0) {
-        setError("No video track available for recording");
-        return null;
-      }
+      const mimeType = MediaRecorder.isTypeSupported(
+        "video/webm;codecs=vp8,opus"
+      )
+        ? "video/webm;codecs=vp8,opus"
+        : "video/webm";
 
-      try {
-        // Stop any existing recording
-        if (
-          mediaRecorderRef.current &&
-          mediaRecorderRef.current.state !== "inactive"
-        ) {
-          mediaRecorderRef.current.stop();
+      const mediaRecorder = new MediaRecorder(streamRef.current, { mimeType });
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0 && !isStoppingRef.current) {
+          recordedChunksRef.current.push(event.data);
+          chunkBufferRef.current.push(event.data);
         }
+      };
 
-        recordedChunksRef.current = [];
-
-        // Check MediaRecorder support
-        if (!window.MediaRecorder) {
-          throw new Error("Recording not supported in this browser");
+      mediaRecorder.onstop = async () => {
+        // flush remaining buffer immediately
+        for (const chunk of chunkBufferRef.current) {
+          await uploadChunk(chunk, uploadPartNumberRef.current++);
         }
+        chunkBufferRef.current = [];
 
-        // Try different MIME types for better compatibility
-        const mimeTypes = [
-          "video/webm;codecs=vp9,opus",
-          "video/webm;codecs=vp8,opus",
-          "video/webm;codecs=h264,opus",
-          "video/webm",
-          "video/mp4",
-        ];
-
-        let selectedMimeType = "";
-        for (const mimeType of mimeTypes) {
-          if (MediaRecorder.isTypeSupported(mimeType)) {
-            selectedMimeType = mimeType;
-            console.log("Selected MIME type:", mimeType);
-            break;
-          }
-        }
-
-        const options: MediaRecorderOptions = {
-          videoBitsPerSecond: 1000000, // 1 Mbps
-          audioBitsPerSecond: 128000, // 128 kbps
-        };
-
-        if (selectedMimeType) {
-          options.mimeType = selectedMimeType;
-        }
-
-        console.log("Creating MediaRecorder with options:", options);
-        let blobPromise = new Promise<StartRecordingType>((resolve, reject) => {
-          const mediaRecorder = new MediaRecorder(streamRef.current!, options);
-
-          mediaRecorder.ondataavailable = (event) => {
-            // console.log("Data available:", event.data.size, "bytes");
-            if (event.data.size > 0) {
-              recordedChunksRef.current.push(event.data);
-            }
-          };
-
-          mediaRecorder.onstop = () => {
-            console.log("Recording stopped");
-            const blob = new Blob(recordedChunksRef.current, {
-              type: selectedMimeType || "video/webm",
-            });
-
-            console.log("Recording complete, blob size:", blob.size);
-            // Create download URL for the recording
-            const url = URL.createObjectURL(blob);
-            const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-
-            // Store recording info (could be used for download later)
-            console.log("Recording available at:", url);
-            // return { blob: blob };
-            resolveBlobRef.current = resolve;
-            resolve({ blob });
-          };
-
-          mediaRecorder.onerror = (event: any) => {
-            console.error("MediaRecorder error:", event.error);
-            setError(
-              "Recording error: " + (event.error?.message || "Unknown error")
-            );
-            setIsRecording(false);
-            // reject(event.error);
-            return event.error;
-          };
-
-          mediaRecorder.onstart = () => {
-            console.log("Recording started successfully");
-            setIsRecording(true);
-            setError(null);
-          };
-
-          mediaRecorderRef.current = mediaRecorder;
-
-          // Start recording with 1-second chunks
-          mediaRecorder.start(1000);
-          console.log("MediaRecorder.start() called");
-          return null;
-        });
-        return blobPromise;
-      } catch (err: any) {
-        console.error("Recording start error:", err);
-        const errorMessage = err.message || "Failed to start recording";
-        setError(errorMessage);
+        const blob = new Blob(recordedChunksRef.current, { type: mimeType });
+        const url = await completeS3Upload();
         setIsRecording(false);
-        return null;
-      }
-    }, []);
+        if (blobResolve) blobResolve({ blob, url });
 
-  const stopRecording = useCallback(async (): Promise<StartRecordingType | null> => {
-    try {
-      console.log("Stopping recording...", mediaRecorderRef);
-      let blobPromise = new Promise<StartRecordingType>((resolve, reject) => {
-        if (
-          mediaRecorderRef.current &&
-          mediaRecorderRef.current.state !== "inactive"
-        ) {
-          mediaRecorderRef.current.onstop = () => {
+        // stop timer
+        if (uploadTimerRef.current) {
+          clearInterval(uploadTimerRef.current);
+          uploadTimerRef.current = null;
+        }
+      };
+
+      mediaRecorder.onerror = (event: any) => {
+        console.error("Recording error:", event.error);
+        setError(event.error?.message || "Recording failed");
+        setIsRecording(false);
+      };
+
+      mediaRecorder.start(1000); // collect data every 1s
+      setIsRecording(true);
+
+      // Every 5s, upload 1 buffered chunk
+      uploadTimerRef.current = setInterval(async () => {
+        if (chunkBufferRef.current.length > 0 && !isStoppingRef.current) {
+          const chunk = chunkBufferRef.current.shift()!;
+          await uploadChunk(chunk, uploadPartNumberRef.current++);
+        }
+      }, 5000);
+
+      return blobPromise;
+    },
+    [initS3Upload, uploadChunk, completeS3Upload]
+  );
+
+  const stopRecording = useCallback(
+    async (): Promise<StartRecordingType | null> => {
+      if (
+        mediaRecorderRef.current &&
+        mediaRecorderRef.current.state !== "inactive"
+      ) {
+        isStoppingRef.current = true;
+
+        mediaRecorderRef.current.stop();
+
+        return new Promise((resolve) => {
+          mediaRecorderRef.current!.onstop = async () => {
+            // flush buffer (done in onstop above)
             const blob = new Blob(recordedChunksRef.current, {
               type: mediaRecorderRef.current?.mimeType || "video/webm",
             });
-            console.log("Blob created on stop:", blob);
-
-            if (resolveBlobRef.current) {
-              resolveBlobRef.current({ blob });
-              resolveBlobRef.current = null;
-            }
-            resolve({ blob });
+            const url = await completeS3Upload();
+            setIsRecording(false);
+            resolve({ blob, url });
           };
-
-          mediaRecorderRef.current.stop();
-          setIsRecording(false);
-          console.log("Recording stop requested");
-          return null;
-        }
-      });
-      console.log("blobPromise", blobPromise)
-      return blobPromise;
-    } catch (e) {
-      console.error("Error stopping recording:", e);
-      return null
-    }
-  }, []);
+        });
+      }
+      return null;
+    },
+    [completeS3Upload]
+  );
 
   return {
     stream,
     isRecording,
+    uploadProgress,
     startCamera,
     stopCamera,
     startRecording,
