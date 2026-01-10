@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
-import { Brain, Camera, Plus, Trash2, Upload } from "lucide-react";
+import { Brain, Camera, Plus, Trash2, Upload, AlertCircle, XCircle } from "lucide-react";
 import axios from "axios";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfjsWorker from "pdfjs-dist/build/pdf.worker.min?url";
@@ -26,6 +26,7 @@ interface Props {
     skills: string[]
   ) => void;
   jobData: JobPost | null;
+  token?: string;
 }
 
 export interface JobPost {
@@ -53,13 +54,29 @@ const NameEmailModal: React.FC<Props> = ({
   isLoading,
   modalError,
   jobData,
+  token: tokenProp,
 }) => {
   const [readyForInterview, setReadyForInterview] = useState(false);
   const [fileName, setFileName] = useState("");
   const [isResumeUploading, setIsResumeUploading] = useState(false);
   const [cvMatch, setCvMatch] = useState<number>(-1);
+  
+  // Email verification states
+  const [isVerifyingEmail, setIsVerifyingEmail] = useState(false);
+  const [emailVerificationError, setEmailVerificationError] = useState<string | null>(null);
+  const [isEmailVerified, setIsEmailVerified] = useState(false);
+  const [showAccessDenied, setShowAccessDenied] = useState(false);
+  const [actualToken, setActualToken] = useState<string>("");
 
-  // Validation schema using Yup and formik
+  // Extract token from URL or use prop
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tokenFromUrl = urlParams.get('token');
+    const finalToken = tokenProp || tokenFromUrl || '';
+    setActualToken(finalToken);
+  }, [tokenProp]);
+
+  // Validation schema
   const {
     values,
     touched,
@@ -90,125 +107,98 @@ const NameEmailModal: React.FC<Props> = ({
       experienceLevel: Yup.string().required("Experience Level is required"),
       designation: Yup.string().required("Designation is required"),
       location: Yup.string().required("Location is required"),
-      skills: Yup.array().of(
-        Yup.string()
-        // .required("Skill cannot be empty")
-      ),
+      skills: Yup.array().of(Yup.string()),
     }),
-    onSubmit: (values) => {
+    onSubmit: async (formValues) => {
+      if (!actualToken) {
+        setEmailVerificationError("Interview link token is missing. Please use the link from your email.");
+        return;
+      }
+
+      // Verify email before submission
+      const isAuthorized = await verifyEmailAccess(formValues.email);
+      
+      if (!isAuthorized) {
+        return;
+      }
+      
+      // If authorized, proceed with submission
       onSubmitPopup(
-        values.name,
-        values.email,
-        values.resumeUrl,
-        values.mobile,
-        values.experienceLevel,
-        values.designation,
-        values.location,
-        values.skills
+        formValues.name,
+        formValues.email,
+        formValues.resumeUrl,
+        formValues.mobile,
+        formValues.experienceLevel,
+        formValues.designation,
+        formValues.location,
+        formValues.skills
       );
     },
   });
 
+  /**
+   * Verify email access against candidate list
+   */
+  const verifyEmailAccess = async (email: string): Promise<boolean> => {
+    if (!email) {
+      setEmailVerificationError("Please enter your email address");
+      return false;
+    }
+
+    if (!actualToken) {
+      setEmailVerificationError("Interview link token is missing. Please use the link from your email.");
+      return false;
+    }
+
+    try {
+      setIsVerifyingEmail(true);
+      setEmailVerificationError(null);
+
+      const response = await axios.post(
+        `${import.meta.env.VITE_AIINTERVIEW_API_KEY}/jobposts/verify-email-for-interview`,
+        {
+          token: actualToken,
+          email: email.toLowerCase().trim(),
+        }
+      );
+
+      if (response.data.success) {
+        setIsEmailVerified(true);
+        setEmailVerificationError(null);
+        setShowAccessDenied(false);
+        return true;
+      } else {
+        setIsEmailVerified(false);
+        setEmailVerificationError(
+          response.data.error || "Email verification failed"
+        );
+        setShowAccessDenied(true);
+        return false;
+      }
+    } catch (error: any) {
+      const errorMessage = 
+        error.response?.data?.error || 
+        error.response?.data?.message ||
+        "Unable to verify email. Please try again.";
+      
+      setIsEmailVerified(false);
+      setEmailVerificationError(errorMessage);
+      setShowAccessDenied(true);
+      return false;
+    } finally {
+      setIsVerifyingEmail(false);
+    }
+  };
+
   const uploadResumeFile = async (file: any) => {
     try {
       setIsResumeUploading(true);
+      
       if (jobData) {
-        // let fileContent = "";
-        // const arrayBuffer = await file.arrayBuffer();
-        // if (file.type.includes("pdf")) {
-        //   const pdf = await pdfjsLib.getDocument({
-        //     data: arrayBuffer,
-        //   }).promise;
-        //   let fullText = "";
-        //   for (let i = 1; i <= pdf.numPages; i++) {
-        //     const page = await pdf.getPage(i);
-        //     const content = await page.getTextContent();
-        //     fullText +=
-        //       content.items
-        //         .map((item) => ("str" in item ? item.str : ""))
-        //         .join(" ") + "\n";
-        //   }
-        //   fileContent = fullText;
-        // } else if (
-        //   file.type.includes("word") ||
-        //   file.type.includes("document") ||
-        //   file.type.includes("docx") ||
-        //   file.type.includes("doc")
-        // ) {
-        //   const result = await mammoth.extractRawText({ arrayBuffer });
-        //   fileContent = `📋 Extracted Information:\n${result.value}`;
-        // } else {
-        //   fileContent = `Unsupported file type`;
-        // }
-        // // check resume parser (compare jobpost and resume) and get popup fields form resume
-        // let cvparserdata = await getCvMatchWithJD(
-        //   {
-        //     jobTitle: jobData?.jobTitle,
-        //     company: jobData?.company,
-        //     department: jobData?.department,
-        //     location: jobData?.location,
-        //     jobType: jobData?.jobType,
-        //     experienceLevel: jobData?.experienceLevel,
-        //     jobDescription: jobData?.jobDescription,
-        //     salaryMin: jobData?.salaryMin,
-        //     salaryMax: jobData?.salaryMax,
-        //     salaryCurrency: jobData?.salaryCurrency,
-        //     requirements: jobData?.requirements ?? [],
-        //     responsibilities: jobData?.responsibilities ?? [],
-        //     skills: jobData?.skills ?? [],
-        //     questions: [],
-        //   },
-        //   fileContent
-        // );
-        // let resumedata = cvparserdata?.job_data;
-        // let matchData = cvparserdata?.match;
-        // console.log("matchData", matchData);
-        // if (matchData?.overallMatchPercentage >= 0) {
-        //   setCvMatch(matchData?.overallMatchPercentage ?? 0);
-        //   if (matchData?.overallMatchPercentage < 60)
-        //     setIsResumeUploading(false);
-        //   else {
-        //     let newskills = [];
-        //     if (values.skills?.length === 0) {
-        //       newskills = resumedata?.skills ?? [];
-        //     } else if (values.skills?.length === 1) {
-        //       newskills =
-        //         values.skills?.[0]?.length > 0
-        //           ? [...values.skills]
-        //           : resumedata?.skills ?? [];
-        //     } else if (values.skills?.length >= 2) {
-        //       newskills = resumedata?.skills ?? [];
-        //     }
-        //     setValues({
-        //       ...values,
-        //       name:
-        //         values.name?.length > 0 ? values.name : resumedata?.name ?? "",
-        //       email:
-        //         values.email?.length > 0
-        //           ? values.email
-        //           : resumedata?.email ?? "",
-        //       mobile:
-        //         values.mobile?.length > 0
-        //           ? values.mobile
-        //           : resumedata?.phone ?? "",
-        //       designation:
-        //         values.designation?.length > 0
-        //           ? values.designation
-        //           : resumedata?.designation ?? "",
-        //       experienceLevel:
-        //         values.experienceLevel?.length > 0
-        //           ? values.experienceLevel
-        //           : resumedata?.experienceLevel ?? "",
-        //       location:
-        //         values.location?.length > 0
-        //           ? values.location
-        //           : resumedata?.location ?? "",
-        //       skills: newskills,
-        //     });
-        //upload resume to cloud
         const formData = new FormData();
         formData.append("file", file);
-        formData.append("fileName", `${values.name}`);
+        formData.append("fileName", `${values.name || 'resume'}`);
+        
         const res = await axios.post(
           `${import.meta.env.VITE_AIINTERVIEW_API_KEY}/jobposts/upload-resume`,
           formData,
@@ -216,6 +206,7 @@ const NameEmailModal: React.FC<Props> = ({
             headers: { "Content-Type": "multipart/form-data" },
           }
         );
+        
         if (res.data) {
           if (res.data?.file_url?.length > 0) {
             setFieldValue("resumeUrl", res?.data?.file_url);
@@ -223,29 +214,69 @@ const NameEmailModal: React.FC<Props> = ({
           }
           setIsResumeUploading(false);
         }
-        //   }
-        // } else {
-        //   setCvMatch(-1);
-        //   setIsResumeUploading(false);
-        //   setFieldError("resumeUrl", "Please try again...");
-        // }
       }
     } catch (error) {
+      console.error("Resume upload error:", error);
       setIsResumeUploading(false);
-      console.error("Error uploading resume file:", error);
     }
   };
 
   if (!isOpen) return null;
 
+  // Access Denied Modal
+  if (showAccessDenied) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-95 z-50 p-4">
+        <div className="bg-gray-800 p-6 sm:p-8 rounded-2xl shadow-2xl w-full max-w-md border border-red-700">
+          <div className="flex flex-col items-center text-center">
+            <div className="w-20 h-20 bg-red-600 rounded-full flex items-center justify-center mb-6">
+              <XCircle className="w-12 h-12 text-white" />
+            </div>
+            
+            <h2 className="text-2xl font-bold text-white mb-4">
+              Access Denied
+            </h2>
+            
+            <div className="bg-red-900/30 border border-red-700 rounded-lg p-4 mb-6 w-full">
+              <p className="text-red-300 text-sm leading-relaxed">
+                {emailVerificationError || 
+                  "Your email is not authorized for this interview."}
+              </p>
+            </div>
+
+            <div className="bg-gray-700/50 rounded-lg p-4 mb-6 w-full">
+              <p className="text-gray-300 text-sm break-all">
+                <strong className="text-white">Email entered:</strong>
+                <br />
+                {values.email || "No email provided"}
+              </p>
+            </div>
+
+            <button
+              onClick={() => {
+                setShowAccessDenied(false);
+                setEmailVerificationError(null);
+                setFieldValue("email", "");
+                setIsEmailVerified(false);
+              }}
+              className="w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold px-6 py-3 rounded-lg transition-all duration-200"
+            >
+              Try Different Email
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900 bg-opacity-95">
+    <div className="min-h-screen flex items-center justify-center bg-gray-900 bg-opacity-95 p-4">
       {readyForInterview ? (
         <>
           {cvMatch >= 0 && cvMatch < 60 ? (
             <div className="fixed inset-0 flex overflow-y-auto flex-grow items-center justify-center bg-gray-900 z-50">
-              <div className="max-h-[90vh] w-full max-w-md">
-                <div className="bg-gray-800 p-8 rounded-2xl shadow-2xl w-11/12 max-w-md border border-gray-700 text-center">
+              <div className="max-h-[90vh] w-full max-w-md p-4">
+                <div className="bg-gray-800 p-8 rounded-2xl shadow-2xl w-full border border-gray-700 text-center">
                   <div className="mb-6">
                     <div className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
                       <svg
@@ -274,32 +305,78 @@ const NameEmailModal: React.FC<Props> = ({
                 </div>
               </div>
             </div>
-          ) : (
-            <></>
-          )}
+          ) : null}
+          
           <div className="w-full max-w-md text-center my-10">
             <form onSubmit={handleSubmit}>
-              <div className="p-8 bg-gray-900 rounded-2xl shadow-sm shadow-gray-700 flex flex-col">
-                <h2 className="text-2xl font-extrabold text-white text-center tracking-wide mb-6">
+              <div className="p-6 sm:p-8 bg-gray-900 rounded-2xl shadow-sm shadow-gray-700 flex flex-col">
+                <h2 className="text-xl sm:text-2xl font-extrabold text-white text-center tracking-wide mb-6">
                   Enter Your Details
                 </h2>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+                {/* Token Missing Warning */}
+                {!actualToken && (
+                  <div className="mb-4 p-3 bg-yellow-900/30 border border-yellow-700 rounded-lg flex items-start space-x-2">
+                    <AlertCircle className="h-5 w-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-yellow-300">
+                      Interview link token is missing. Please use the link from your email.
+                    </p>
+                  </div>
+                )}
+
+                {/* Email Verification Error */}
+                {emailVerificationError && !showAccessDenied && (
+                  <div className="mb-4 p-3 bg-red-900/30 border border-red-700 rounded-lg flex items-start space-x-2">
+                    <AlertCircle className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-red-300">{emailVerificationError}</p>
+                  </div>
+                )}
+
+                {/* Email Verified Success */}
+                {isEmailVerified && (
+                  <div className="mb-4 p-3 bg-green-900/30 border border-green-700 rounded-lg flex items-start space-x-2">
+                    <AlertCircle className="h-5 w-5 text-green-400 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-green-300">
+                      ✓ Email verified successfully! You are authorized for this interview.
+                    </p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
                   <input
-                    className="border border-gray-700 bg-gray-800 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-lg p-3 w-full transition-all duration-200 outline-none"
+                    className="border border-gray-700 bg-gray-800 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base"
                     type="text"
                     placeholder="Name"
                     name="name"
                     value={values.name}
                     onChange={handleChange}
                   />
-                  <input
-                    className="border border-gray-700 bg-gray-800 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-lg p-3 w-full transition-all duration-200 outline-none"
-                    type="email"
-                    name="email"
-                    placeholder="Email"
-                    value={values.email}
-                    onChange={handleChange}
-                  />
+                  
+                  <div className="relative">
+                    <input
+                      className={`border ${
+                        isEmailVerified 
+                          ? 'border-green-600 bg-green-900/20' 
+                          : 'border-gray-700 bg-gray-800'
+                      } text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
+                      type="email"
+                      name="email"
+                      placeholder="Email (will be verified)"
+                      value={values.email}
+                      onChange={(e) => {
+                        handleChange(e);
+                        setIsEmailVerified(false);
+                        setEmailVerificationError(null);
+                      }}
+                      disabled={isVerifyingEmail}
+                    />
+                    {isEmailVerified && (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                        <span className="text-green-400 text-xl">✓</span>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="lg:col-span-2">
                     <div className="w-full flex flex-col justify-start">
                       <label
@@ -315,17 +392,15 @@ const NameEmailModal: React.FC<Props> = ({
                         </span>
                       ) : fileName?.length > 0 ? (
                         <>
-                          <span className="text-gray-400 mt-2 text-sm text-left">
+                          <span className="text-gray-400 mt-2 text-sm text-left break-all">
                             {fileName}
                           </span>
-                          <p className="text-green-700 text-base font-semibold text-center mt-2">
-                            🎉 Congratulations! You’ve achieved a {cvMatch}%
+                          <p className="text-green-700 text-sm sm:text-base font-semibold text-center mt-2">
+                            🎉 Congratulations! You've achieved a {cvMatch}%
                             match with the job posting.
                           </p>
                         </>
-                      ) : (
-                        <></>
-                      )}
+                      ) : null}
                       <input
                         id="file-upload"
                         type="file"
@@ -334,27 +409,31 @@ const NameEmailModal: React.FC<Props> = ({
                         disabled={isResumeUploading || isLoading}
                         onChange={async (e) => {
                           const file: any = e.target.files?.[0];
-                          setFileName(file?.name ?? "");
-                          uploadResumeFile(file);
+                          if (file) {
+                            setFileName(file.name);
+                            uploadResumeFile(file);
+                          }
                         }}
                       />
                     </div>
                   </div>
+                  
                   <input
-                    className="border border-gray-700 bg-gray-800 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-lg p-3 w-full transition-all duration-200 outline-none"
+                    className="border border-gray-700 bg-gray-800 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base"
                     type="text"
                     name="mobile"
                     placeholder="Phone Number"
                     value={values.mobile}
                     onChange={handleChange}
                   />
-                  <div className="">
+                  
+                  <div>
                     <select
                       value={values.experienceLevel}
                       onChange={(e) =>
                         setFieldValue("experienceLevel", e.target.value)
                       }
-                      className="w-full px-4 py-3 border border-gray-700 bg-gray-800 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-gray-700 bg-gray-800 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
                     >
                       <option value="">Select experience level</option>
                       <option value="entry">Entry Level (0-1 years)</option>
@@ -364,24 +443,27 @@ const NameEmailModal: React.FC<Props> = ({
                       <option value="lead">Lead/Manager (10+ years)</option>
                     </select>
                   </div>
+                  
                   <input
-                    className="border border-gray-700 bg-gray-800 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-lg p-3 w-full transition-all duration-200 outline-none"
+                    className="border border-gray-700 bg-gray-800 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base"
                     type="text"
                     name="designation"
                     placeholder="Designation"
                     value={values.designation}
                     onChange={handleChange}
                   />
+                  
                   <input
-                    className="border border-gray-700 bg-gray-800 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-lg p-3 w-full transition-all duration-200 outline-none"
+                    className="border border-gray-700 bg-gray-800 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base"
                     type="text"
                     name="location"
                     placeholder="Location"
                     value={values.location}
                     onChange={handleChange}
                   />
+                  
                   <div className="mb-4 lg:col-span-2">
-                    <label className="block font-medium text-gray-400 mb-4 text-left">
+                    <label className="block font-medium text-gray-400 mb-4 text-left text-sm sm:text-base">
                       Skills
                     </label>
                     {values.skills.map((skill, index) => (
@@ -400,7 +482,7 @@ const NameEmailModal: React.FC<Props> = ({
                               skills: damiskills,
                             });
                           }}
-                          className="flex-1 px-4 py-2 border border-gray-700 bg-gray-800 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className="flex-1 px-4 py-2 border border-gray-700 bg-gray-800 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
                           placeholder="Enter skill"
                         />
                         <button
@@ -435,74 +517,83 @@ const NameEmailModal: React.FC<Props> = ({
                     </button>
                   </div>
                 </div>
+
+                {/* Form Errors */}
                 {Object.values(touched)?.length > 0 &&
                 Object.values(errors)?.length > 0 ? (
-                  <p className="text-red-600 mb-2">
+                  <p className="text-red-600 mb-2 text-sm">
                     {Object.values(errors)[0]}
                   </p>
                 ) : modalError ? (
-                  <p className="text-red-600 mb-2">{modalError}</p>
-                ) : (
-                  <></>
-                )}
-                {isLoading ? (
-                  <div className="flex justify-center mt-4">
+                  <p className="text-red-600 mb-2 text-sm">{modalError}</p>
+                ) : null}
+
+                {/* Submit Button */}
+                {isLoading || isVerifyingEmail ? (
+                  <div className="flex justify-center items-center mt-4 space-x-2">
                     <div className="h-6 w-6 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-gray-400 text-sm">
+                      {isVerifyingEmail ? "Verifying email..." : "Submitting..."}
+                    </span>
                   </div>
                 ) : (
                   <button
                     type="submit"
-                    disabled={isResumeUploading}
-                    className="mt-5 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg w-full transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-blue-900/30"
+                    disabled={isResumeUploading || isVerifyingEmail || !actualToken}
+                    className="mt-5 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg w-full transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-blue-900/30 text-sm sm:text-base"
                   >
-                    Submit
+                    Submit & Verify Access
                   </button>
                 )}
+
+                <p className="text-gray-500 text-xs mt-3 text-center">
+                  Your email will be verified against the authorized candidate list.
+                </p>
               </div>
             </form>
           </div>
         </>
       ) : (
-        <div className="w-full max-w-2xl my-10 bg-gray-800 p-8 rounded-2xl shadow-2xl border border-gray-700">
+        <div className="w-full max-w-2xl my-10 bg-gray-800 p-6 sm:p-8 rounded-2xl shadow-2xl border border-gray-700">
           <div className="mb-6">
-            <div className="flex items-center justify-center gap-3 mb-4">
+            <div className="flex items-center justify-center gap-3 mb-4 flex-wrap">
               <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl text-white">
-                <Brain className="w-8 h-8" />
+                <Brain className="w-6 h-6 sm:w-8 sm:h-8" />
               </div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent text-center">
+              <h1 className="text-2xl sm:text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent text-center">
                 {jobData?.jobTitle ?? "Physics"} Interview AI
               </h1>
               <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl text-white">
-                <Camera className="w-8 h-8" />
+                <Camera className="w-6 h-6 sm:w-8 sm:h-8" />
               </div>
             </div>
-            <p className="text-gray-300 leading-relaxed">
+            <p className="text-gray-300 leading-relaxed text-sm sm:text-base">
               {jobData?.jobDescription}
             </p>
-            <h2 className="text-xl font-bold text-white mt-4 mb-2">
+            <h2 className="text-lg sm:text-xl font-bold text-white mt-4 mb-2">
               Requirements
             </h2>
-            <ul className="text-gray-300 list-disc ml-4">
+            <ul className="text-gray-300 list-disc ml-4 text-sm sm:text-base">
               {jobData?.requirements.map((item: any, i) => (
                 <li key={i}>{item?.requirement ?? ""}</li>
               ))}
             </ul>
-            <h2 className="text-xl font-bold text-white mt-4 mb-2">
+            <h2 className="text-lg sm:text-xl font-bold text-white mt-4 mb-2">
               Responsibility
             </h2>
-            <ul className="text-gray-300 list-disc ml-4">
+            <ul className="text-gray-300 list-disc ml-4 text-sm sm:text-base">
               {jobData?.responsibilities.map((item: any, i) => (
                 <li key={i}>{item?.responsibility ?? ""}</li>
               ))}
             </ul>
-            <h2 className="text-xl font-bold text-white mt-4 mb-2">
+            <h2 className="text-lg sm:text-xl font-bold text-white mt-4 mb-2">
               Required Skills
             </h2>
             <div className="flex flex-wrap gap-2 mt-1">
               {jobData?.skills.map((item: any, index: number) => (
                 <span
                   key={index}
-                  className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm"
+                  className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs sm:text-sm"
                 >
                   {item?.skill}
                 </span>
@@ -511,7 +602,7 @@ const NameEmailModal: React.FC<Props> = ({
             <div className="flex items-center justify-center gap-3 mb-4">
               <button
                 onClick={() => setReadyForInterview(true)}
-                className="mt-5 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg w-full transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-blue-900/30"
+                className="mt-5 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg w-full transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-blue-900/30 text-sm sm:text-base"
               >
                 Ready For Interview
               </button>

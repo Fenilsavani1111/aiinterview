@@ -5,70 +5,8 @@ import InterviewInterface from "./components/InterviewInterface";
 import NameEmailModal, { JobPost } from "./components/NameEmailModal";
 import NoQuestionData from "./components/NoQuestionData";
 
-let Mockresponse = {
-  message: "User joined successfully",
-  jobId: 3,
-  jobTitle: "Junior Web Developer",
-  activeJoinUserCount: 32,
-  questions: [
-    {
-      id: 49,
-      question: "Can you explain the box model in CSS?",
-      type: "technical",
-      difficulty: "easy",
-      expectedDuration: 120,
-      category: "CSS",
-      suggestedAnswers: [],
-      isRequired: true,
-      order: 49,
-    },
-    {
-      id: 50,
-      question: "What is the difference between '== ' and '===' in JavaScript?",
-      type: "technical",
-      difficulty: "medium",
-      expectedDuration: 90,
-      category: "JavaScript",
-      suggestedAnswers: [],
-      isRequired: true,
-      order: 50,
-    },
-    {
-      id: 51,
-      question: "How do you ensure that your web applications are responsive?",
-      type: "behavioral",
-      difficulty: "medium",
-      expectedDuration: 120,
-      category: "Web Development",
-      suggestedAnswers: [],
-      isRequired: true,
-      order: 51,
-    },
-    {
-      id: 52,
-      question:
-        "What is your experience with version control systems like Git?",
-      type: "technical",
-      difficulty: "easy",
-      expectedDuration: 90,
-      category: "Version Control",
-      suggestedAnswers: [],
-      isRequired: true,
-      order: 52,
-    },
-  ],
-  candidateId: "28",
-};
-
 const App: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
-  // const [fetchQueData, setFetchQueData] = useState(Mockresponse);
-  // const [interviewQuestions, setInterviewQuestions] = useState<any[]>([
-  //   ...Mockresponse.questions,
-  // ]);
-  // const [candidateId, setCandidateId] = useState<string | null>(
-  //   Mockresponse.candidateId
-  // );
   const [fetchQueData, setFetchQueData] = useState(null);
   const [interviewQuestions, setInterviewQuestions] = useState<any[]>([]);
   const [candidateId, setCandidateId] = useState<string | null>(null);
@@ -76,22 +14,22 @@ const App: React.FC = () => {
   const [modalError, setModalError] = useState(null);
   const [jobData, setJobData] = useState<JobPost | null>(null);
   const [loading, setLoading] = useState(false);
+  const [token, setToken] = useState<string>("");
   let ignore = false;
 
-  const getdata = async (token: string | null) => {
+  const getdata = async (tokenValue: string | null) => {
     try {
       setLoading(true);
       const response = await axios.post(
-        `${
-          import.meta.env.VITE_AIINTERVIEW_API_KEY
-        }/jobposts/get-jobpost-by-token`,
-        { token: token },
+        `${import.meta.env.VITE_AIINTERVIEW_API_KEY}/jobposts/get-jobpost-by-token`,
+        { token: tokenValue },
         {
           headers: {
             "Content-Type": "application/json",
           },
         }
       );
+      
       if (response.data) {
         if (response.data?.job) {
           setJobData(response.data?.job);
@@ -100,19 +38,21 @@ const App: React.FC = () => {
         }
         setLoading(false);
       }
-    } catch (error) {
+    } catch (error: any) {
       setLoading(false);
-      console.log("error", error);
+      console.error("Error fetching job data:", error);
     }
   };
 
   useEffect(() => {
     if (!ignore) {
       const params = new URLSearchParams(window.location.search);
-      let token: string | null = params.get("token");
-      if (token) {
+      let tokenFromUrl: string | null = params.get("token");
+      
+      if (tokenFromUrl) {
+        setToken(tokenFromUrl);
         setLoading(true);
-        getdata(token);
+        getdata(tokenFromUrl);
       }
     }
     return () => {
@@ -135,7 +75,7 @@ const App: React.FC = () => {
       const response = await axios.post(
         `${import.meta.env.VITE_AIINTERVIEW_API_KEY}/jobposts/join-job-link`,
         {
-          token: new URLSearchParams(window.location.search).get("token"),
+          token: token,
           user: email,
           name: name,
           email: email,
@@ -152,10 +92,12 @@ const App: React.FC = () => {
           },
         }
       );
+      
       if (response.data) {
         setShowModal(false);
         setFetchQueData(response.data);
-        document.title = response.data?.jobTitle ?? "AI Interview"; // Set page title
+        document.title = response.data?.jobTitle ?? "AI Interview";
+        
         if (response.data.questions && Array.isArray(response.data.questions)) {
           let dummyquestions = [...response.data.questions];
           dummyquestions = dummyquestions.sort((a, b) => a.id - b.id);
@@ -164,12 +106,9 @@ const App: React.FC = () => {
         }
         setIsModalLoading(false);
       }
-      // You can handle the response here (e.g., save data, show a message, etc.)
-      console.log("Join job link response:", response.data);
     } catch (error: any) {
       setIsModalLoading(false);
       setModalError(error?.response?.data?.error ?? null);
-      // Handle error (show error message, etc.)
       console.error("Error joining job link:", error);
     }
   };
@@ -206,6 +145,7 @@ const App: React.FC = () => {
               isLoading={isModalLoading}
               modalError={modalError}
               jobData={jobData}
+              token={token}
             />
           )}
         </>
