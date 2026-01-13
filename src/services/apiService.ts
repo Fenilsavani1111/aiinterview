@@ -1,15 +1,10 @@
-import OpenAI from "openai";
 import {
   InterviewQuestion,
   QuestionResponse,
 } from "../components/InterviewInterface";
 import { JobPost } from "../components/NameEmailModal";
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: import.meta.env.VITE_OPENAI_API_KEY,
-  dangerouslyAllowBrowser: true,
-});
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 
 export interface PhysicsEvaluation {
   score: number; // 0-10
@@ -31,139 +26,62 @@ export const processPhysicsQuestion = async (
   answer: string
 ): Promise<PhysicsEvaluation> => {
   try {
-    console.log("🧠 Processing with deep context awareness...");
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are an intelligent interviewer that understands context and responds appropriately to different types of student answers.
-
-CONTEXT ANALYSIS GUIDELINES:
-1. ANALYZE the student's answer to understand their knowledge level:
-   - Complete understanding: Shows clear grasp of concepts with correct explanations
-   - Partial understanding: Has some correct ideas but missing key elements
-   - Confused/struggling: Shows misconceptions or very limited understanding
-   - No knowledge: Admits they don't know or gives completely wrong answer
-
-2. RESPOND CONTEXTUALLY based on their understanding level:
-
-   FOR STUDENTS WHO CLEARLY KNOW THE ANSWER (score 7-10):
-   - Give encouraging feedback: "Excellent explanation!" "Great understanding!" "Perfect!"
-   - Acknowledge specific correct points they made
-   - Keep it positive and brief (8-15 words)
-
-   FOR STUDENTS WITH PARTIAL KNOWLEDGE (score 4-6):
-   - Be encouraging but gently corrective: "Good start, but remember [key point]"
-   - "You're on the right track with [correct part]"
-   - Provide a brief hint or clarification (15-20 words)
-
-   FOR STRUGGLING STUDENTS (score 1-3):
-   - Be very supportive: "That's okay, this is tricky!"
-   - "No worries, let's move on to the next question"
-   - Don't explain the answer, just be encouraging (8-12 words)
-
-   FOR STUDENTS WHO ADMIT THEY DON'T KNOW (score 0-1):
-   - Be extra supportive: "That's perfectly fine!"
-   - "Honesty is good, let's continue!"
-   - "No problem at all, next question!"
-
-3. NEVER give long explanations or lectures
-4. ALWAYS match your tone to their confidence level
-5. Be a supportive interviewer, not a teacher
-
-Respond in JSON format:
-{"score": <0-10>, "feedback": "<contextually appropriate feedback>"}`,
+    console.log("🧠 Processing with deep context awareness via backend...");
+    const response = await fetch(`${apiBaseUrl}/openai/process-question`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
         },
-        {
-          role: "user",
-          content: `Question: ${question}\n\nStudent's Answer: "${answer}"
-
-Please analyze this answer contextually and provide appropriate feedback based on the student's demonstrated understanding level.`,
-        },
-      ],
-      max_tokens: 150,
-      temperature: 0.3,
+        body: JSON.stringify({ question, answer }),
     });
 
-    const responseText =
-      response.choices[0]?.message?.content ||
-      '{"score": 5, "feedback": "Thank you for your answer!"}';
-    console.log("🧠 Context-aware evaluation:", responseText);
-
-    try {
-      const evaluation = JSON.parse(responseText);
-      const score = evaluation?.score ?? 0;
-      let feedback = evaluation.feedback || "Thank you for your answer!";
-
-      // Additional context-based feedback refinement
-      const answerLower = answer.toLowerCase();
-
-      // Detect if student admits they don't know
-      if (
-        answerLower.includes("don't know") ||
-        answerLower.includes("not sure") ||
-        answerLower.includes("no idea") ||
-        answerLower.includes("i don't") ||
-        answer.trim().length < 10
-      ) {
-        feedback = getEncouragingResponse();
-      }
-      // Detect if student is clearly confident and knowledgeable
-      else if (score >= 7 && answer.length > 50) {
-        const positiveResponses = [
-          "Excellent explanation!",
-          "Great understanding!",
-          "Perfect answer!",
-          "Outstanding knowledge!",
-          "Brilliant explanation!",
-          "Superb understanding!",
-        ];
-        feedback =
-          positiveResponses[
-          Math.floor(Math.random() * positiveResponses.length)
-          ];
-      }
-      // Detect if student shows partial understanding
-      else if (score >= 4 && score < 7) {
-        // Keep the AI's contextual feedback for partial understanding
-        feedback = evaluation.feedback;
-      }
-      // For very low scores, be supportive
-      else if (score < 4) {
-        feedback = getSupportiveResponse();
-      }
-
-      return {
-        score,
-        feedback,
-      };
-    } catch (parseError) {
-      console.log("Using contextual fallback evaluation");
-
-      // Analyze answer content for fallback response
-      const answerLower = answer.toLowerCase();
-      if (answerLower.includes("don't know") || answer.trim().length < 10) {
-        return {
-          score: 1,
-          feedback: getEncouragingResponse(),
-        };
-      } else if (answer.length > 100) {
-        return {
-          score: 6,
-          feedback: "Good detailed response!",
-        };
-      } else {
-        return {
-          score: 5,
-          feedback: "Thank you for your answer!",
-        };
-      }
+    if (!response.ok) {
+        throw new Error(`Backend API error: ${response.status}`);
     }
-  } catch (error) {
-    console.log("Using supportive fallback due to API error");
 
-    // Even in error cases, try to be contextual
+    const evaluation = await response.json();
+    console.log("🧠 Context-aware evaluation from backend:", evaluation);
+
+    const score = evaluation?.score ?? 0;
+    let feedback = evaluation.feedback || "Thank you for your answer!";
+
+    // Additional context-based feedback refinement can still happen on the client
+    const answerLower = answer.toLowerCase();
+
+    if (
+      answerLower.includes("don't know") ||
+      answerLower.includes("not sure") ||
+      answerLower.includes("no idea") ||
+      answerLower.includes("i don't") ||
+      answer.trim().length < 10
+    ) {
+      feedback = getEncouragingResponse();
+    }
+    else if (score >= 7 && answer.length > 50) {
+      const positiveResponses = [
+        "Excellent explanation!",
+        "Great understanding!",
+        "Perfect answer!",
+        "Outstanding knowledge!",
+        "Brilliant explanation!",
+        "Superb understanding!",
+      ];
+      feedback =
+        positiveResponses[
+          Math.floor(Math.random() * positiveResponses.length)
+        ];
+    }
+    else if (score < 4) {
+      feedback = getSupportiveResponse();
+    }
+
+    return {
+      score,
+      feedback,
+    };
+  } catch (error) {
+    console.log("Using supportive fallback due to API error:", error);
+
     const answerLower = answer.toLowerCase();
     if (answerLower.includes("don't know") || answer.trim().length < 10) {
       return {
@@ -489,71 +407,36 @@ export const preloadCommonTTS = async () => {
 // Get Data from resume pdf
 export const getDataFromResumePdf = async (pdfText: string) => {
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a helpful assistant that extracts structured data from resumes. Return the result only in pure JSON format without any explanation.",
+    const response = await fetch(`${apiBaseUrl}/openai/get-data-from-resume`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
         },
-        {
-          role: "user",
-          content: `
-Extract the following information from the resume text:
-- Full Name
-- Email Address
-- Phone Number
-- Experience Level (choose only one from: "entry", "junior", "mid", "senior", "lead")
-- Current or Last Designation
-- Location
-- Technical or Domain Skills
-
-Resume Text:
-"""
-${pdfText}
-"""
-Respond only in this JSON format:
-{
-  "job_data": {
-    "name": "",
-    "email": "",
-    "phone": "",
-    "experienceLevel": "",
-    "designation": "",
-    "location": "",
-    "skills": []
-  }
-}
-`,
-        },
-      ],
-      temperature: 0.3,
-      response_format: {
-        type: "json_object",
-      },
+        body: JSON.stringify({ pdfText }),
     });
-    let responseText = response.choices[0]?.message?.content ?? "";
-    const evaluation = JSON.parse(responseText);
+    if (!response.ok) {
+      throw new Error(`Backend API error: ${response.status}`);
+    }
+    const evaluation = await response.json();
     let data:
       | {
-        name: string;
-        email: string;
-        phone: string;
-        experienceLevel: string;
-        designation: string;
-        location: string;
-        skills: string[];
-      }
+          name: string;
+          email: string;
+          phone: string;
+          experienceLevel: string;
+          designation: string;
+          location: string;
+          skills: string[];
+        }
       | undefined = evaluation?.job_data ?? {
-        name: "",
-        email: "",
-        phone: "",
-        experienceLevel: "",
-        designation: "",
-        location: "",
-        skills: [],
-      };
+      name: "",
+      email: "",
+      phone: "",
+      experienceLevel: "",
+      designation: "",
+      location: "",
+      skills: [],
+    };
     return data;
   } catch (error) {
     console.log("error", error);
@@ -566,94 +449,78 @@ export const getInterviewOverviewWithAI = async (
   candidateInterview: QuestionResponse[]
 ) => {
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are an assistant that converts interview question data and candidate answers into a single dashboard-ready JSON object and short human summary. Follow these rules exactly:
-1) Treat numeric 'score' as out of 10. Do NOT invent scores for missing answers.
-2) For each category (communicationSkills, technicalKnowledge, confidenceLevel, problemSolving, leadershipPotential) compute and return:
-   - answeredAveragePercentage: average of only answered questions *10, rounded to 1 decimal place (zero string if none answered)
-   - overallAveragePercentage: average across all questions treating missing answers as 0, rounded to 1 decimal place (zero if zero questions)
-   - summary: one-sentence description of performance for that category
-3) Also return counts: answeredCount, totalQuestions.
-4) Category mapping:
-   - communicationSkills: type == 'behavioral'
-   - technicalKnowledge: type == 'technical'
-   - confidenceLevel: aggregate across all answered and all questions
-5) Build quickStats using the percentage ranges but **return only the label** (Excellent, Good, Fair, Poor) without the numeric ranges. For example, if the percentage falls in 40-59.9%, the output should be "Fair" (do not include "40-59.9%" in the string).
-6) Recommendation: one of {"Highly Recommended", "Recommended", "Consider with reservations", "Not Recommended"}, include a 'summary' field explaining reasoning. Weight: 60% Tech, 40% Communication.
-7) Include meta.assumption: "Scores are out of 10. Missing answers are handled in two ways (answered-only averages and overall averages treating missing required answers as 0). calculationDate: ${new Date().toISOString()}"
-8) Output JSON must include: meta, performanceBreakdown (with percentages and summary), quickStats, recommendations (with summary), aiEvaluationSummary.
-9) aiEvaluationSummary must include: a 'summary' string, a 'keyStrengths' array, and an 'areasOfGrowth' array. Derive these from the computed category results; do not contradict the numbers.
-10) Determinism: Be deterministic (temperature 0). Do not include anything except the single JSON object followed by a 2–6 line human summary.`
+    const response = await fetch(`${apiBaseUrl}/openai/get-interview-overview`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
         },
-        {
-          role: "user",
-          content: `Produce professional interview evaluation in JSON and short human summary for the following data. Use the rules in the system message exactly.
-
----
-questions: [
-${interviewQuestions.map(v =>
-            `{
-  "id": ${v.id},
-  "question": ${JSON.stringify(v.question)},
-  "type": ${JSON.stringify(v.type)},
-  "difficulty": ${JSON.stringify(v.difficulty)},
-  "expectedDuration": ${v.expectedDuration},
-  "category": ${JSON.stringify(v.category)},
-  "suggestedAnswers": [${v.suggestedAnswers?.map(s => JSON.stringify(s)).join(", ")}],
-  "isRequired": ${v.isRequired},
-  "order": ${v.order}
-}`).join(",\n")}
-]
-
-candidateAnswers: [
-${candidateInterview.map(v =>
-              `{
-  "question": ${JSON.stringify(v.question)},
-  "userAnswer": ${JSON.stringify(v.userAnswer)},
-  "aiEvaluation": ${JSON.stringify(v.aiEvaluation)},
-  "score": ${v.score},
-  "responseTime": ${v.responseTime}
-}`).join(",\n")}
-]
----`
-        }
-      ],
-      temperature: 0.3,
-      response_format: {
-        type: "json_object",
-      },
+        body: JSON.stringify({ interviewQuestions, candidateInterview }),
     });
-    let responseText = response.choices[0]?.message?.content ?? "";
-    const evaluation = JSON.parse(responseText);
+    if (!response.ok) {
+        throw new Error(`Backend API error: ${response.status}`);
+    }
+    const evaluation = await response.json();
     return evaluation;
   } catch (error) {
     console.log("error", error);
   }
 };
 
-// get behaviour analysis using python api
+// get behaviour analysis using local API endpoint
 export const getBehaviouralAnalysis = async (
   video_url: string,
   questionsWithAnswer: any,
-  jobData: any,
+  jobData: any
 ) => {
   try {
-    const response = await fetch(`${import.meta.env.VITE_BEHAVIOUR_API}`, {
+    // Use local API endpoint - NO AUTHENTICATION REQUIRED for this endpoint
+    const apiBaseUrl =
+      import.meta.env.VITE_AIINTERVIEW_API_KEY ||
+      "http://localhost:5000/api/jobposts";
+    
+    console.log("📹 Calling behavioral analysis API:", {
+      endpoint: `${apiBaseUrl}/behavioral-analysis`,
+      video_url: video_url ? video_url.substring(0, 50) + "..." : null,
+      questionsCount: questionsWithAnswer?.length || 0,
+    });
+
+    const response = await fetch(`${apiBaseUrl}/behavioral-analysis`, {
       method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
+        // NO Authorization header - this endpoint is public
       },
-      body: JSON.stringify({ video_url: video_url, questionsWithAnswer: questionsWithAnswer, jobData: jobData })
-    })
-    let res = await response.json()
-    return res
+      body: JSON.stringify({
+        video_url: video_url,
+        questionsWithAnswer: questionsWithAnswer,
+        jobData: jobData,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(
+        "❌ Behavioral analysis API error:",
+        response.status,
+        errorText
+      );
+      throw new Error(`API error: ${response.status} - ${errorText}`);
+    }
+
+    const res = await response.json();
+    console.log("✅ Behavioral analysis response:", {
+      status: res.status,
+      hasPerformanceBreakdown: !!res.performanceBreakdown,
+    });
+    return res;
   } catch (error: any) {
-    console.log("error", error);
-    return (typeof error === "object" && error !== null && "message" in error) ? (error as any).message : String(error);
+    console.error("❌ Behavioral analysis error:", error);
+    return {
+      status: "error",
+      error: error.message || "Failed to analyze interview",
+      status_code: 500,
+      video_url: video_url,
+    };
   }
 };
 
@@ -663,56 +530,17 @@ export const getCvMatchWithJD = async (
   resumetext: string
 ) => {
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are a resume-to-job matching engine and a structured data extractor. 
-1. First, extract structured data from the resume into JSON format. 
-2. Then, compare the extracted resume data against the job post and return a JSON object with match percentages.
-3. Always respond only in pure JSON without any explanation.`
+    const response = await fetch(`${apiBaseUrl}/openai/get-cv-match-with-jd`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
         },
-        {
-          role: "user",
-          content: `
-RESUME TEXT:
-"""
-${resumetext}
-"""
-
-JOB POST:
-${JSON.stringify(jobdetails)}
-
-Respond only in this JSON format:
-{
-  "job_data": {
-    "name": "",
-    "email": "",
-    "phone": "",
-    "experienceLevel": "",
-    "designation": "",
-    "location": "",
-    "skills": []
-  },
-  "match": {
-    "overallMatchPercentage": 0,
-    "skillsMatchPercentage": 0,
-    "experienceMatchPercentage": 0,
-    "educationMatchPercentage": 0,
-    "locationMatchPercentage": 0
-  }
-}
-`
-        }
-      ],
-      temperature: 0.3,
-      response_format: {
-        type: "json_object",
-      },
+        body: JSON.stringify({ jobdetails, resumetext }),
     });
-    let responseText = response.choices[0]?.message?.content ?? "";
-    const evaluation = JSON.parse(responseText);
+    if (!response.ok) {
+        throw new Error(`Backend API error: ${response.status}`);
+    }
+    const evaluation = await response.json();
     return evaluation;
   } catch (error) {
     console.log("error", error);

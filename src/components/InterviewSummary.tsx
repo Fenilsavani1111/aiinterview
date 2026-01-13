@@ -414,17 +414,21 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                           Quick Stats
                         </h3>
                         <div className="space-y-4">
-                          {Object.entries(candidateData?.quickStats).map(
-                            ([skill, data]: any) => (
-                              <div className="flex justify-between items-center">
-                                <span className="text-sm text-gray-600">
-                                  {camelToLabel(skill)}
-                                </span>
-                                <span className="font-semibold text-green-600">
-                                  {data}
-                                </span>
-                              </div>
+                          {candidateData?.quickStats && Object.keys(candidateData.quickStats).length > 0 ? (
+                            Object.entries(candidateData.quickStats).map(
+                              ([skill, data]: any) => (
+                                <div key={skill} className="flex justify-between items-center">
+                                  <span className="text-sm text-gray-600">
+                                    {camelToLabel(skill)}
+                                  </span>
+                                  <span className="font-semibold text-green-600">
+                                    {data}
+                                  </span>
+                                </div>
+                              )
                             )
+                          ) : (
+                            <p className="text-sm text-gray-500">No quick stats available</p>
                           )}
                         </div>
                       </div>

@@ -48,7 +48,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ stream, isRecording, err
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Camera className="w-5 h-5 text-gray-600" />
-            <span className="font-medium text-gray-800">Interview Camera</span>
+            <span className="font-medium text-gray-800">Camera</span>
           </div>
           {isRecording && (
             <div className="flex items-center gap-2 text-red-600">

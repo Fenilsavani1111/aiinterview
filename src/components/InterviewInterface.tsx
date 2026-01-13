@@ -114,7 +114,7 @@ export interface Candidate {
     areasOfGrowth?: string[];
   };
   performanceBreakdown?: any;
-  quickStats: any;
+  quickStats?: any;
   recommendations?: {
     summary?: string;
     recommendation?: string;
@@ -140,6 +140,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
   const [microphoneReady, setMicrophoneReady] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
+  const [showTestResult, setShowTestResult] = useState(false);
   const [currentAudio, setCurrentAudio] = useState<Blob | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isProcessingResponse, setIsProcessingResponse] = useState(false);
@@ -181,38 +182,116 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
     error: cameraError,
   } = useCamera();
 
-  // Test microphone access on component mount
+  // Request microphone and camera permissions on component mount (shows native browser pop-up)
   useEffect(() => {
-    const testMicrophone = async () => {
-      try {
-        console.log("🎤 Testing microphone access...");
-        const testStream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
-        });
-        console.log("✅ Microphone test successful");
+    const requestPermissions = async () => {
+      if (
+        typeof navigator === "undefined" ||
+        !navigator.mediaDevices ||
+        typeof navigator.mediaDevices.getUserMedia !== "function"
+      ) {
+        console.warn("getUserMedia is not supported in this environment.");
+        return;
+      }
 
-        testStream.getTracks().forEach((track) => track.stop());
-        setMicrophoneReady(true);
-      } catch (error) {
-        console.error("❌ Microphone test failed:", error);
-        setMicrophoneReady(false);
+      // Only request if jobData is available
+      if (!jobData) {
+        return;
+      }
+
+      try {
+        console.log("🔔 Requesting device permissions (this will show browser pop-up)...");
+        
+        // Request permissions based on video recording setting
+        // This will show the native browser permission pop-up (like in the image)
+        if (jobData.enableVideoRecording) {
+          // Request both audio and video together - shows one pop-up for both
+          // This triggers the native browser permission dialog
+          const mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              width: { ideal: 1280, min: 640 },
+              height: { ideal: 720, min: 480 },
+              facingMode: "user",
+            },
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+              sampleRate: 44100,
+            },
+          });
+          
+          console.log("✅ Permissions granted by user");
+          
+          // Stop this temporary stream - startCamera will create its own
+          mediaStream.getTracks().forEach((track) => track.stop());
+          
+          // Now start camera properly (will reuse granted permissions)
+          // This keeps the camera stream active for the interview
+          try {
+            await startCamera();
+            setMicrophoneReady(true);
+            console.log("✅ Camera and microphone ready");
+          } catch (cameraErr: any) {
+            console.error("❌ Camera setup failed:", cameraErr);
+            // Still set microphone ready if audio track was available
+            setMicrophoneReady(true);
+          }
+        } else {
+          // Audio-only mode - request microphone permission
+          // This triggers the native browser permission dialog
+          const audioStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+              sampleRate: 44100,
+            },
+          });
+          
+          console.log("✅ Microphone permission granted by user");
+          setMicrophoneReady(true);
+          
+          // Stop the stream - we'll request it again when starting the interview
+          audioStream.getTracks().forEach((track) => track.stop());
+        }
+      } catch (error: any) {
+        console.error("❌ Permission request failed:", error);
+        
+        // Handle different error types
+        if (error.name === "NotAllowedError") {
+          console.log("User denied permissions");
+          setMicrophoneReady(false);
+        } else if (error.name === "NotFoundError") {
+          console.log("No devices found");
+          setMicrophoneReady(false);
+        } else {
+          console.log("Other error:", error.message);
+          setMicrophoneReady(false);
+        }
       }
     };
 
-    if (
-      typeof navigator !== "undefined" &&
-      navigator.mediaDevices &&
-      typeof navigator.mediaDevices.getUserMedia === "function"
-    ) {
-      testMicrophone();
-    } else {
-      console.warn("getUserMedia is not supported in this environment.");
+    // Request permissions when component mounts and jobData is available
+    // This will automatically show the browser permission pop-up
+    requestPermissions();
+  }, [jobData, startCamera]);
+
+  // Show test result message when camera state changes after testing
+  useEffect(() => {
+    if (showTestResult && jobData?.enableVideoRecording) {
+      const timer = setTimeout(() => {
+        if (stream && !cameraError) {
+          // Camera is ready - this will be handled by UI state
+          setShowTestResult(false);
+        } else if (cameraError) {
+          // Camera has error - this will be shown in error UI
+          setShowTestResult(false);
+        }
+      }, 1000);
+      return () => clearTimeout(timer);
     }
-  }, []);
+  }, [showTestResult, stream, cameraError, jobData]);
 
   // upload recording to cloud
   const uploadinterviewvideo = async (
@@ -242,6 +321,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         let file_url = `${
           import.meta.env.VITE_AIINTERVIEW_API_VIDEO_ENDPOINT
         }/${res.data?.path}`;
+        console.log("✅ Video uploaded successfully, URL:", file_url);
         try {
           let questionsWithAnswer = session?.questions?.map((v) => {
             return {
@@ -261,13 +341,18 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
             let newbehavioraldata = {
               ...behavioraldata,
             };
+            // Remove metadata fields that shouldn't be saved to database
             delete newbehavioraldata?.analysis_settings;
             delete newbehavioraldata?.status;
             delete newbehavioraldata?.timestamp;
             delete newbehavioraldata?.token_consumption;
-            delete newbehavioraldata?.video_url;
+            // Keep video_url in meta but don't duplicate it in main data
+            // (video_url is already saved separately as interviewVideoLink)
+            if (newbehavioraldata?.meta) {
+              delete newbehavioraldata.meta.video_url;
+            }
             setCurrentStep(2);
-            updateCandidateDetails(
+            await updateCandidateDetails(
               file_url?.length > 0 ? file_url : null,
               damisession,
               {
@@ -275,36 +360,46 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
               }
             );
           } else {
-            setCurrentStep(0);
-            setIsLoading(false);
-            setErrorText(
-              "Sorry, unable to analyze the video at this time. Please try again."
+            console.warn("⚠️ Video analysis failed, saving interview data without analysis:", behavioraldata);
+            // Still save interview data even if analysis fails
+            setCurrentStep(2);
+            await updateCandidateDetails(
+              file_url?.length > 0 ? file_url : null,
+              damisession,
+              {}
             );
-            console.log("python api", behavioraldata);
           }
         } catch (error) {
-          setCurrentStep(0);
-          setIsLoading(false);
-          setErrorText(
-            "Sorry, unable to analyze the video at this time. Please try again."
+          console.error("❌ Error during video analysis:", error);
+          // Still save interview data even if analysis fails
+          setCurrentStep(2);
+          await updateCandidateDetails(
+            res.data?.path ? `${
+              import.meta.env.VITE_AIINTERVIEW_API_VIDEO_ENDPOINT
+            }/${res.data?.path}` : null,
+            damisession,
+            {}
           );
-          console.log("python api", error);
         }
-        setIsLoading(false);
       } else {
-        setCurrentStep(0);
-        setIsLoading(false);
-        setErrorText(
-          "Sorry, unable to upload the interview video. Please try again."
-        );
+        console.warn("⚠️ Video upload response missing path, saving interview data without video");
+        // Still save interview data even if video upload response is invalid
+        await updateCandidateDetails(null, damisession, {});
       }
     } catch (error) {
-      setCurrentStep(0);
-      console.error("Error uploading resume file:", error);
-      setErrorText(
-        "Sorry, unable to upload the interview video. Please try again."
-      );
-      setIsLoading(false);
+      console.error("❌ Error uploading video file:", error);
+      // Still save interview data even if video upload fails
+      console.log("💾 Saving interview data without video due to upload error...");
+      try {
+        await updateCandidateDetails(null, damisession, {});
+      } catch (saveError) {
+        console.error("❌ Error saving interview data:", saveError);
+        setCurrentStep(0);
+        setErrorText(
+          "Sorry, unable to upload the interview video and save interview data. Please try again."
+        );
+        setIsLoading(false);
+      }
     }
   };
 
@@ -651,9 +746,10 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
       return;
     }
 
-    if (cameraError != null) {
+    // If this job post requires video, ensure camera is available.
+    if (jobData?.enableVideoRecording && (!!cameraError || !stream)) {
       alert(
-        "Camera is not ready. Please allow camera access and refresh the page."
+        "Camera is not ready. Please click 'Test Recording Setup' to grant camera permissions, or refresh the page."
       );
       return;
     }
@@ -661,24 +757,40 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
     try {
       console.log("🚀 Starting interview...");
 
-      // Test microphone access
-      const testStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 44100,
-        },
-      });
-      console.log("✅ Microphone access confirmed");
-      testStream.getTracks().forEach((track) => track.stop());
+      // If microphone is already ready, permissions were granted on page load
+      // Just verify access without showing pop-up again
+      if (!microphoneReady) {
+        // Request microphone access (will show pop-up if not already granted)
+        const testStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            sampleRate: 44100,
+          },
+        });
+        console.log("✅ Microphone access confirmed");
+        testStream.getTracks().forEach((track) => track.stop());
+        setMicrophoneReady(true);
+      } else {
+        console.log("✅ Microphone already ready (permissions granted on page load)");
+      }
 
-      // Start camera
-      try {
-        await startCamera();
-        console.log("✅ Camera started");
-      } catch (error) {
-        console.warn("⚠️ Camera failed to start, continuing without camera");
+      // Start camera only if video recording is enabled for this job
+      if (jobData?.enableVideoRecording) {
+        // If stream already exists, camera was started on page load
+        if (!stream) {
+          try {
+            await startCamera();
+            console.log("✅ Camera started (video recording enabled)");
+          } catch (error) {
+            console.warn(
+              "⚠️ Camera failed to start, continuing without camera (audio-only)"
+            );
+          }
+        } else {
+          console.log("✅ Camera already ready (permissions granted on page load)");
+        }
       }
 
       // Create new session
@@ -693,15 +805,19 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
       setSession(newSession);
       setInterviewStarted(true);
 
-      // Start recording in background
-      setTimeout(async () => {
-        try {
-          await startRecording();
-          console.log("✅ Recording started");
-        } catch (error) {
-          console.log("⚠️ Recording failed, continuing without recording");
-        }
-      }, 500);
+      // Start recording in background only when video recording is enabled
+      if (jobData?.enableVideoRecording) {
+        setTimeout(async () => {
+          try {
+            await startRecording();
+            console.log("✅ Video recording started");
+          } catch (error) {
+            console.log(
+              "⚠️ Video recording failed, continuing without video recording"
+            );
+          }
+        }, 500);
+      }
     } catch (error) {
       console.error("💥 Error starting interview:", error);
       alert(
@@ -710,35 +826,122 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
     }
   };
 
-  // End interview
+  // End interview - saves all data collected so far (even if interview ended early)
   const endInterview = useCallback(
     async (updatedSession: InterviewSession) => {
-      console.log("🏁 Ending interview");
+      console.log("🏁 Ending interview (early exit or completion)");
       setIsLoading(true);
       setInterviewStarted(false);
       setIsGeneratingAudio(false);
-      // setWaitingForAnswer(false);
-      // setAudioPlaying(false);
       stopListening();
-      // stopAudio();
-      let data = await stopRecording();
-      if (updatedSession) {
+      
+      // IMPORTANT: Stop recording FIRST to capture the blob BEFORE stopping camera
+      // If video recording was enabled, stop recorder and upload video;
+      // otherwise, just update candidate details using audio-only data.
+      let videoBlobData: { blob: Blob } | null = null;
+      if (jobData?.enableVideoRecording) {
+        try {
+          console.log("📹 Stopping video recording...");
+          // Wait for recording to stop and blob to be created
+          videoBlobData = await Promise.race([
+            stopRecording(),
+            new Promise<null>((resolve) => 
+              setTimeout(() => {
+                console.warn("⏱️ Recording stop timeout after 10 seconds");
+                resolve(null);
+              }, 10000)
+            )
+          ]);
+          
+          if (videoBlobData?.blob && videoBlobData.blob.size > 0) {
+            console.log("✅ Video recording stopped, blob captured:", {
+              size: videoBlobData.blob.size,
+              type: videoBlobData.blob.type
+            });
+          } else {
+            console.warn("⚠️ Video recording stopped but no blob captured or blob is empty");
+            videoBlobData = null;
+          }
+        } catch (recordingError) {
+          console.error("❌ Error stopping video recording:", recordingError);
+          videoBlobData = null;
+          // Continue without video - save interview data anyway
+        }
+      }
+      
+      // Stop camera AFTER recording is stopped and blob is captured (cleanup)
+      try {
+        if (jobData?.enableVideoRecording) {
+          stopCamera();
+        }
+      } catch (cameraStopError) {
+        console.warn("⚠️ Error stopping camera:", cameraStopError);
+      }
+
+      // Use current session or passed session
+      const currentSession = updatedSession || session;
+      if (currentSession) {
         let damisession: InterviewSession = {
-          ...updatedSession,
+          ...currentSession,
           endTime: new Date(),
           status: "completed",
         };
-        if (damisession?.questions && damisession?.questions?.length > 0) {
-          if (data?.blob) {
-            uploadinterviewvideo(data.blob, damisession);
-          }
-        }
+        
+        // Update session status immediately so UI shows completion
         setSession({
           ...damisession,
         });
+        
+        try {
+          // Save interview data even if user ended early - save whatever questions were answered
+          // This ensures partial interview data is preserved with audio/video recordings
+          if (damisession?.questions && damisession.questions.length > 0) {
+            console.log(`💾 Saving interview data (${damisession.questions.length} question(s) answered)...`);
+            
+            if (jobData?.enableVideoRecording) {
+              // Video recording mode
+              if (videoBlobData?.blob && videoBlobData.blob.size > 0) {
+                console.log("📤 Uploading video recording with interview data...");
+                // Upload video and save interview details with video URL - await to ensure completion
+                await uploadinterviewvideo(videoBlobData.blob, damisession);
+              } else {
+                console.warn("⚠️ No video blob captured, saving interview data without video");
+                // No video was captured; still persist interview details without video link
+                // This handles cases where recording failed but interview was completed
+                await updateCandidateDetails(null, damisession, {});
+              }
+            } else {
+              // Audio-only mode – no video upload/analysis
+              console.log("🎤 Audio-only mode: Saving interview data...");
+              await updateCandidateDetails(null, damisession, {});
+            }
+          } else {
+            // No questions answered - still save empty interview record to mark as attempted
+            console.log("⚠️ No questions answered, saving empty interview record");
+            if (jobData?.enableVideoRecording) {
+              if (videoBlobData?.blob && videoBlobData.blob.size > 0) {
+                // Save video even if no questions answered
+                await uploadinterviewvideo(videoBlobData.blob, damisession);
+              } else {
+                await updateCandidateDetails(null, damisession, {});
+              }
+            } else {
+              await updateCandidateDetails(null, damisession, {});
+            }
+          }
+        } catch (error) {
+          console.error("❌ Error saving interview data:", error);
+          setErrorText("Failed to save interview data. Please contact support.");
+        } finally {
+          // Always set loading to false after saving completes (or fails)
+          setIsLoading(false);
+        }
+      } else {
+        console.error("❌ No session data available to save");
+        setIsLoading(false);
       }
     },
-    [session, stopListening, stopAudio, stopRecording]
+    [session, stopListening, stopCamera, stopRecording, jobData, updateCandidateDetails]
   );
 
   // Always ask confirmation on refresh/close until process is completed
@@ -854,28 +1057,124 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
                         : "Please allow access"}
                     </p>
                   </div>
-                  <div className="p-4 bg-purple-50 rounded-xl">
-                    <Camera className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-                    <h3 className="font-semibold text-purple-800">
-                      📹 Recorded
+                  <div className={`p-4 rounded-xl ${
+                    jobData?.enableVideoRecording 
+                      ? cameraError ? "bg-yellow-50" : "bg-purple-50"
+                      : "bg-gray-50"
+                  }`}>
+                    <Camera className={`w-8 h-8 mx-auto mb-2 ${
+                      jobData?.enableVideoRecording
+                        ? cameraError ? "text-yellow-600" : "text-purple-600"
+                        : "text-gray-400"
+                    }`} />
+                    <h3 className={`font-semibold ${
+                      jobData?.enableVideoRecording
+                        ? cameraError ? "text-yellow-800" : "text-purple-800"
+                        : "text-gray-600"
+                    }`}>
+                      {jobData?.enableVideoRecording
+                        ? cameraError ? "⚠️ Camera Issue" : "📹 Video "
+                        : "🎧 Audio Only"}
                     </h3>
-                    <p className="text-sm text-purple-600">Audio + Video</p>
+                    <p className={`text-sm ${
+                      jobData?.enableVideoRecording
+                        ? cameraError ? "text-yellow-600" : "text-purple-600"
+                        : "text-gray-500"
+                    }`}>
+                      {jobData?.enableVideoRecording
+                        ? cameraError ? "Check camera access" : "Camera recording enabled"
+                        : "No camera recording"}
+                    </p>
                   </div>
                 </div>
 
-                {(speechError || cameraError || !microphoneReady) && (
+                {/* Error Messages */}
+                {(speechError || (jobData?.enableVideoRecording && cameraError) || !microphoneReady) && (
                   <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">
-                    <p className="font-medium">Setup Required:</p>
-                    <p className="text-sm">
-                      {speechError && `Speech: ${speechError}`}
-                      {speechError && cameraError && " | "}
-                      {cameraError && `Camera: ${cameraError}`}
-                      {!microphoneReady &&
-                        !speechError &&
-                        "Please allow microphone access and refresh the page"}
-                    </p>
+                    <p className="font-medium mb-2">⚠️ Setup Required:</p>
+                    <ul className="text-sm list-disc list-inside space-y-1">
+                      {!speechSupported && (
+                        <li>Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari.</li>
+                      )}
+                      {speechError && <li>Speech Recognition: {speechError}</li>}
+                      {!microphoneReady && (
+                        <li>Microphone: Please allow microphone access and refresh the page.</li>
+                      )}
+                      {jobData?.enableVideoRecording && cameraError && (
+                        <li>Camera: {cameraError} - Please allow camera access and refresh the page.</li>
+                      )}
+                      {jobData?.enableVideoRecording && !cameraError && !navigator.mediaDevices?.getUserMedia && (
+                        <li>Camera: Your browser doesn't support camera access. Please use a modern browser (Chrome, Firefox, Edge, Safari).</li>
+                      )}
+                    </ul>
                   </div>
                 )}
+
+                {/* Test Recording Setup Button */}
+                <div className="mb-6">
+                  <button
+                    onClick={async () => {
+                      try {
+                        // Test microphone
+                        console.log("🧪 Testing microphone...");
+                        const micStream = await navigator.mediaDevices.getUserMedia({ 
+                          audio: {
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            autoGainControl: true,
+                          }
+                        });
+                        micStream.getTracks().forEach(track => track.stop());
+                        setMicrophoneReady(true);
+                        console.log("✅ Microphone ready");
+                        
+                        // Test camera if video recording is enabled
+                        if (jobData?.enableVideoRecording) {
+                          console.log("🧪 Testing camera...");
+                          setShowTestResult(true);
+                          await startCamera();
+                          // Wait a bit for state to update, then check result
+                          setTimeout(() => {
+                            if (stream && !cameraError) {
+                              alert("✅ All devices are working correctly!\n\nMicrophone: Ready ✓\nCamera: Ready ✓\n\nYou can now start the interview!");
+                            } else if (cameraError) {
+                              alert("⚠️ Device test partially successful:\n\n✅ Microphone: Ready ✓\n❌ Camera: " + cameraError + "\n\nPlease check the error message below and try again.");
+                            } else {
+                              alert("✅ Device test completed!\n\nMicrophone: Ready ✓\nCamera: Please check status below\n\nIf camera shows as ready, you can start the interview!");
+                            }
+                            setShowTestResult(false);
+                          }, 800);
+                        } else {
+                          alert("✅ Microphone is working correctly!\n\nMicrophone: Ready ✓\n(No camera test - audio-only mode)\n\nYou can now start the interview!");
+                        }
+                      } catch (err: any) {
+                        console.error("Device test failed:", err);
+                        let errorMsg = "Device test failed:\n\n";
+                        if (err.name === "NotAllowedError") {
+                          errorMsg += "❌ Permission denied.\n\n";
+                          errorMsg += "Please allow " + (jobData?.enableVideoRecording ? "microphone and camera" : "microphone") + " access in your browser settings.\n\n";
+                          errorMsg += "Steps:\n";
+                          errorMsg += "1. Click the lock/camera icon in your browser's address bar\n";
+                          errorMsg += "2. Allow microphone" + (jobData?.enableVideoRecording ? " and camera" : "") + " permissions\n";
+                          errorMsg += "3. Refresh this page";
+                        } else if (err.name === "NotFoundError") {
+                          errorMsg += "❌ No " + (err.message.includes("video") ? "camera" : "microphone") + " found.\n\n";
+                          errorMsg += "Please connect a " + (err.message.includes("video") ? "camera" : "microphone") + " and try again.";
+                        } else if (err.name === "NotReadableError") {
+                          errorMsg += "❌ Device is already in use.\n\n";
+                          errorMsg += "Please close other applications using your " + (err.message.includes("video") ? "camera" : "microphone") + " and try again.";
+                        } else {
+                          errorMsg += `❌ ${err.message || "Unknown error"}`;
+                        }
+                        alert(errorMsg);
+                      }
+                    }}
+                    className="w-full px-6 py-3 bg-green-100 hover:bg-green-200 text-green-700 font-medium rounded-xl border border-green-300 transition-all duration-200 mb-4 flex items-center justify-center gap-2"
+                  >
+                    <span>🧪</span>
+                    <span>Test Recording Setup</span>
+                  </button>
+                </div>
 
                 <button
                   onClick={startInterview}
@@ -883,7 +1182,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
                     !speechSupported ||
                     !!speechError ||
                     !microphoneReady ||
-                    !!cameraError
+                    (jobData?.enableVideoRecording && !!cameraError)
                   }
                   className="w-full px-8 py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold text-lg rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 >

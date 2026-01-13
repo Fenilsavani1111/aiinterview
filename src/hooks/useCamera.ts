@@ -159,15 +159,9 @@ export const useCamera = (): CameraHook => {
   const stopCamera = useCallback(() => {
     console.log("Stopping camera...");
 
-    // Stop recording first
-    if (mediaRecorderRef.current && isRecording) {
-      try {
-        mediaRecorderRef.current.stop();
-      } catch (e) {
-        console.error("Error stopping recorder:", e);
-      }
-    }
-
+    // Don't stop recording here - use stopRecording() separately to get the blob
+    // This function is just for cleaning up the camera stream
+    
     // Stop all tracks
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => {
@@ -178,10 +172,10 @@ export const useCamera = (): CameraHook => {
     }
 
     setStream(null);
-    setIsRecording(false);
+    // Don't set isRecording to false here - let stopRecording() handle that
     setError(null);
-    mediaRecorderRef.current = null;
-  }, [isRecording]);
+    // Don't clear mediaRecorderRef here - let stopRecording() handle that after blob is created
+  }, []);
 
   const startRecording =
     useCallback(async (): Promise<StartRecordingType | null> => {
@@ -217,9 +211,12 @@ export const useCamera = (): CameraHook => {
           mediaRecorderRef.current.state !== "inactive"
         ) {
           mediaRecorderRef.current.stop();
+          // Wait a bit for cleanup
+          await new Promise(resolve => setTimeout(resolve, 100));
         }
 
         recordedChunksRef.current = [];
+        resolveBlobRef.current = null; // Clear any previous resolve function
 
         // Check MediaRecorder support
         if (!window.MediaRecorder) {
@@ -254,58 +251,37 @@ export const useCamera = (): CameraHook => {
         }
 
         console.log("Creating MediaRecorder with options:", options);
-        let blobPromise = new Promise<StartRecordingType>((resolve, reject) => {
-          const mediaRecorder = new MediaRecorder(streamRef.current!, options);
+        const mediaRecorder = new MediaRecorder(streamRef.current!, options);
 
-          mediaRecorder.ondataavailable = (event) => {
-            // console.log("Data available:", event.data.size, "bytes");
-            if (event.data.size > 0) {
-              recordedChunksRef.current.push(event.data);
-            }
-          };
+        mediaRecorder.ondataavailable = (event) => {
+          // console.log("Data available:", event.data.size, "bytes");
+          if (event.data.size > 0) {
+            recordedChunksRef.current.push(event.data);
+          }
+        };
 
-          mediaRecorder.onstop = () => {
-            console.log("Recording stopped");
-            const blob = new Blob(recordedChunksRef.current, {
-              type: selectedMimeType || "video/webm",
-            });
+        mediaRecorder.onerror = (event: any) => {
+          console.error("MediaRecorder error:", event.error);
+          setError(
+            "Recording error: " + (event.error?.message || "Unknown error")
+          );
+          setIsRecording(false);
+        };
 
-            console.log("Recording complete, blob size:", blob.size);
-            // Create download URL for the recording
-            const url = URL.createObjectURL(blob);
-            const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+        mediaRecorder.onstart = () => {
+          console.log("Recording started successfully");
+          setIsRecording(true);
+          setError(null);
+        };
 
-            // Store recording info (could be used for download later)
-            console.log("Recording available at:", url);
-            // return { blob: blob };
-            resolveBlobRef.current = resolve;
-            resolve({ blob });
-          };
+        mediaRecorderRef.current = mediaRecorder;
 
-          mediaRecorder.onerror = (event: any) => {
-            console.error("MediaRecorder error:", event.error);
-            setError(
-              "Recording error: " + (event.error?.message || "Unknown error")
-            );
-            setIsRecording(false);
-            // reject(event.error);
-            return event.error;
-          };
-
-          mediaRecorder.onstart = () => {
-            console.log("Recording started successfully");
-            setIsRecording(true);
-            setError(null);
-          };
-
-          mediaRecorderRef.current = mediaRecorder;
-
-          // Start recording with 1-second chunks
-          mediaRecorder.start(1000);
-          console.log("MediaRecorder.start() called");
-          return null;
-        });
-        return blobPromise;
+        // Start recording with 1-second chunks
+        mediaRecorder.start(1000);
+        console.log("MediaRecorder.start() called");
+        
+        // Return null promise for startRecording - blob will be returned by stopRecording
+        return Promise.resolve(null);
       } catch (err: any) {
         console.error("Recording start error:", err);
         const errorMessage = err.message || "Failed to start recording";
@@ -317,36 +293,126 @@ export const useCamera = (): CameraHook => {
 
   const stopRecording = useCallback(async (): Promise<StartRecordingType | null> => {
     try {
-      console.log("Stopping recording...", mediaRecorderRef);
-      let blobPromise = new Promise<StartRecordingType>((resolve, reject) => {
-        if (
-          mediaRecorderRef.current &&
-          mediaRecorderRef.current.state !== "inactive"
-        ) {
-          mediaRecorderRef.current.onstop = () => {
-            const blob = new Blob(recordedChunksRef.current, {
-              type: mediaRecorderRef.current?.mimeType || "video/webm",
-            });
-            console.log("Blob created on stop:", blob);
+      console.log("📹 Stopping recording...", {
+        hasRecorder: !!mediaRecorderRef.current,
+        state: mediaRecorderRef.current?.state,
+        isRecording: isRecording,
+        chunksCount: recordedChunksRef.current.length
+      });
+      
+      // Store reference to current recorder to avoid TypeScript issues
+      const currentRecorder = mediaRecorderRef.current;
+      
+      // If no recorder, return null
+      if (!currentRecorder) {
+        console.warn("⚠️ No recorder found - recording may not have started");
+        setIsRecording(false);
+        // Check if we have any recorded chunks anyway
+        if (recordedChunksRef.current.length > 0) {
+          console.log("📦 Found recorded chunks, creating blob...");
+          const blob = new Blob(recordedChunksRef.current, { type: "video/webm" });
+          console.log("✅ Blob created from chunks:", { size: blob.size });
+          recordedChunksRef.current = []; // Clear chunks
+          return { blob };
+        }
+        return null;
+      }
+      
+      // If already inactive, try to create blob from existing chunks
+      if (currentRecorder.state === "inactive") {
+        console.log("⚠️ Recorder already inactive, creating blob from existing chunks...");
+        if (recordedChunksRef.current.length > 0) {
+          const mimeType = currentRecorder.mimeType || "video/webm";
+          const blob = new Blob(recordedChunksRef.current, { type: mimeType });
+          console.log("✅ Blob created from existing chunks:", { size: blob.size, type: blob.type });
+          setIsRecording(false);
+          mediaRecorderRef.current = null;
+          return { blob };
+        } else {
+          console.warn("⚠️ No chunks recorded");
+          setIsRecording(false);
+          mediaRecorderRef.current = null;
+          return null;
+        }
+      }
 
+      // Create promise that resolves when recording stops
+      const blobPromise = new Promise<StartRecordingType>((resolve, reject) => {
+        // Store resolve function for use in onstop handler
+        resolveBlobRef.current = resolve;
+        
+        // Set up the onstop handler BEFORE calling stop()
+        currentRecorder.onstop = () => {
+          try {
+            console.log("📹 onstop handler called, creating blob...");
+            const mimeType = currentRecorder.mimeType || "video/webm";
+            const blob = new Blob(recordedChunksRef.current, {
+              type: mimeType,
+            });
+            
+            console.log("✅ Recording stopped, blob created:", {
+              size: blob.size,
+              type: blob.type,
+              chunks: recordedChunksRef.current.length
+            });
+
+            setIsRecording(false);
+            
+            // Clear the recorder reference after blob is created
+            mediaRecorderRef.current = null;
+            
+            // Resolve the promise with the blob
             if (resolveBlobRef.current) {
               resolveBlobRef.current({ blob });
               resolveBlobRef.current = null;
+            } else {
+              resolve({ blob });
             }
-            resolve({ blob });
-          };
+          } catch (err) {
+            console.error("❌ Error creating blob:", err);
+            setIsRecording(false);
+            if (resolveBlobRef.current) {
+              resolveBlobRef.current = null;
+            }
+            reject(err);
+          }
+        };
 
-          mediaRecorderRef.current.stop();
+        currentRecorder.onerror = (event: any) => {
+          console.error("❌ MediaRecorder error on stop:", event.error);
           setIsRecording(false);
-          console.log("Recording stop requested");
-          return null;
+          if (resolveBlobRef.current) {
+            resolveBlobRef.current = null;
+          }
+          reject(event.error || new Error("Recording stop error"));
+        };
+
+        // Now stop the recording - this will trigger onstop
+        try {
+          currentRecorder.stop();
+          console.log("⏹️ Recording stop() called, waiting for onstop...");
+        } catch (stopErr) {
+          console.error("❌ Error calling stop():", stopErr);
+          setIsRecording(false);
+          if (resolveBlobRef.current) {
+            resolveBlobRef.current = null;
+          }
+          reject(stopErr);
         }
       });
-      console.log("blobPromise", blobPromise)
-      return blobPromise;
+
+      // Wait for the promise to resolve (recording to actually stop and blob to be created)
+      const result = await blobPromise;
+      console.log("✅ Recording stopped successfully, blob ready:", {
+        size: result.blob.size,
+        type: result.blob.type
+      });
+      return result;
     } catch (e) {
-      console.error("Error stopping recording:", e);
-      return null
+      console.error("❌ Error stopping recording:", e);
+      setIsRecording(false);
+      resolveBlobRef.current = null;
+      return null;
     }
   }, []);
 

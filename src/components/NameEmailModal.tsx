@@ -46,6 +46,9 @@ export interface JobPost {
   responsibilities: string[];
   skills: string[];
   candidates?: [];
+  // When true, this job's interview will record video + audio.
+  // When false or undefined, the interview will be audio-only.
+  enableVideoRecording?: boolean;
 }
 
 const NameEmailModal: React.FC<Props> = ({
