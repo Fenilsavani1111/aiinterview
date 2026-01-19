@@ -1214,8 +1214,7 @@ const App: React.FC = () => {
     try {
       setLoading(true);
       const response = await axios.post(
-        `${
-          import.meta.env.VITE_AIINTERVIEW_API_KEY
+        `${import.meta.env.VITE_AIINTERVIEW_API_KEY
         }/jobposts/get-jobpost-by-token`,
         { token: tokenValue },
         {
@@ -1261,6 +1260,7 @@ const App: React.FC = () => {
     email: string,
     resumeUrl: string,
     mobile: string,
+    dob: string,
     highestQualification: string,
     educations: Array<{
       type: 'degree' | 'plusTwo' | 'tenth';
@@ -1284,6 +1284,7 @@ const App: React.FC = () => {
           email: email,
           resumeUrl: resumeUrl,
           mobile: mobile,
+          dob: dob,
           highestQualification: highestQualification,
           educations: educations,
           location: location,

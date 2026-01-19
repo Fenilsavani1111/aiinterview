@@ -27,6 +27,7 @@ interface Props {
     email: string,
     resumeUrl: string,
     mobile: string,
+    dob: string,
     highestQualification: string,
     educations: Array<{
       type: 'degree' | 'plusTwo' | 'tenth';
@@ -108,6 +109,7 @@ const NameEmailModal: React.FC<Props> = ({
       email: '',
       resumeUrl: '',
       mobile: '',
+      dob: '',
       highestQualification: '',
       degreeEducation: {
         stream: '',
@@ -144,6 +146,7 @@ const NameEmailModal: React.FC<Props> = ({
         .matches(/^[+]?[\d\s\-()]+$/, 'Please enter a valid phone number')
         .min(10, 'Phone number must be at least 10 digits')
         .required('Please enter your phone number'),
+        dob: Yup.string().required('Please enter your date of birth (DD/MM/YYYY)'),  
       highestQualification: Yup.string().required(
         'Please select your highest qualification'
       ),
@@ -275,6 +278,7 @@ const NameEmailModal: React.FC<Props> = ({
         formValues.email,
         formValues.resumeUrl,
         formValues.mobile,
+        formValues.dob,
         formValues.highestQualification,
         educations,
         formValues.location,
@@ -624,6 +628,7 @@ const NameEmailModal: React.FC<Props> = ({
                     </p>
                   </div>
 
+                  <div className='grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5'>
                   <div>
                     <label className='block text-gray-700 text-sm mb-2 text-left'>
                       Phone Number <span className='text-red-600'>*</span>
@@ -645,6 +650,29 @@ const NameEmailModal: React.FC<Props> = ({
                         {errors.mobile}
                       </p>
                     )}
+                  </div>
+
+                  <div>
+                    <label className='block text-gray-700 text-sm mb-2 text-left'>
+                      Date of Birth <span className='text-red-600'>*</span>
+                    </label>
+                    <input
+                      className={`border ${
+                        errors.dob && touched.dob
+                          ? 'border-red-300 bg-red-50'
+                          : 'border-gray-300 bg-white'
+                      } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
+                      type='date'
+                      name='dob'
+                      value={values.dob}
+                      onChange={handleChange}
+                    />
+                    {errors.dob && touched.dob && (
+                      <p className='text-red-600 text-xs mt-1 text-left'>
+                        {errors.dob}
+                      </p>
+                    )}
+                  </div>
                   </div>
 
                   {/* Resume Upload */}

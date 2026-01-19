@@ -4,10 +4,7 @@ import {
   Loader2,
   Mic,
   MicOff,
-  Volume2,
   Clock,
-  CheckCircle,
-  AlertCircle,
   Activity,
 } from 'lucide-react';
 
@@ -32,12 +29,17 @@ export const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
   onTextAnswerChange,
   onSubmitTextAnswer,
 }) => {
-  // Safely extract question text and type
+  // Safely extract question text, type, and options
   const questionText =
     typeof question === 'string' ? question : question?.question || '';
   const questionType =
     typeof question === 'string' ? null : question?.type?.toLowerCase() || null;
   const isCommunicationQuestion = questionType === 'communication';
+  const options: string[] =
+    Array.isArray((question as any)?.options) && (question as any).options.length > 0
+      ? (question as any).options
+      : [];
+  const hasOptions = !isCommunicationQuestion && options.length > 0;
 
   const getTranscriptWordCount = () => {
     return transcript
@@ -109,57 +111,108 @@ export const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
             </p>
           </div>
 
-          {/* Text Input for Non-Communication Questions */}
+          {/* Options or Text Input for Non-Communication Questions */}
           {!isCommunicationQuestion && (
             <div className='space-y-4'>
-              <div className='p-4 bg-blue-50 border border-blue-200 rounded-xl'>
-                <p className='text-sm text-blue-700 mb-3'>
-                  💡 <strong>Written Assessment:</strong> Please type your
-                  answer in the text area below.
-                </p>
-              </div>
-              <div className='space-y-3'>
-                <label className='block text-sm font-medium text-gray-700'>
-                  Your Answer:
-                </label>
-                <textarea
-                  value={textAnswer}
-                  onChange={(e) => onTextAnswerChange?.(e.target.value)}
-                  placeholder='Type your answer here...'
-                  className='w-full min-h-[200px] p-4 border-2 border-gray-300 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 resize-y text-gray-800 placeholder-gray-400'
-                  disabled={isProcessing}
-                />
-                <div className='flex justify-between items-center text-xs text-gray-500'>
-                  <span>
-                    {textAnswer.length} characters,{' '}
-                    {
-                      textAnswer
-                        .trim()
-                        .split(/\s+/)
-                        .filter((w) => w.length > 0).length
-                    }{' '}
-                    words
-                  </span>
-                  <span
-                    className={
-                      textAnswer.trim().length >= 50
-                        ? 'text-green-600'
-                        : 'text-orange-600'
-                    }
-                  >
-                    {textAnswer.trim().length >= 50
-                      ? '✓ Ready to submit'
-                      : 'Minimum 50 characters recommended'}
-                  </span>
-                </div>
-                <button
-                  onClick={onSubmitTextAnswer}
-                  disabled={isProcessing || textAnswer.trim().length < 10}
-                  className='w-full px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:hover:shadow-lg'
-                >
-                  {isProcessing ? 'Processing...' : 'Submit Answer'}
-                </button>
-              </div>
+              {hasOptions ? (
+                <>
+                  <div className='p-4 bg-blue-50 border border-blue-200 rounded-xl'>
+                    <p className='text-sm text-blue-700 mb-3'>
+                      💡 <strong>Select one option:</strong> Choose the best
+                      answer below.
+                    </p>
+                  </div>
+                  <div className='space-y-3'>
+                    <label className='block text-sm font-medium text-gray-700'>
+                      Your Answer:
+                    </label>
+                    <div
+                      className='space-y-2'
+                      role='radiogroup'
+                      aria-label='Select an option'
+                    >
+                      {options.map((opt, idx) => (
+                        <label
+                          key={idx}
+                          className={`flex items-start gap-3 p-4 border-2 rounded-xl cursor-pointer transition-all ${textAnswer === opt
+                              ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200'
+                              : 'border-gray-300 hover:border-gray-400 bg-white'
+                            }`}
+                        >
+                          <input
+                            type='radio'
+                            name='question-option'
+                            value={opt}
+                            checked={textAnswer === opt}
+                            onChange={() => onTextAnswerChange?.(opt)}
+                            disabled={isProcessing}
+                            className='mt-1 w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500'
+                          />
+                          <span className='text-gray-800 flex-1'>{opt}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <button
+                      onClick={onSubmitTextAnswer}
+                      disabled={isProcessing || !textAnswer.trim()}
+                      className='w-full px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:hover:shadow-lg'
+                    >
+                      {isProcessing ? 'Processing...' : 'Submit Answer'}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className='p-4 bg-blue-50 border border-blue-200 rounded-xl'>
+                    <p className='text-sm text-blue-700 mb-3'>
+                      💡 <strong>Written Assessment:</strong> Please type your
+                      answer in the text area below.
+                    </p>
+                  </div>
+                  <div className='space-y-3'>
+                    <label className='block text-sm font-medium text-gray-700'>
+                      Your Answer:
+                    </label>
+                    <textarea
+                      value={textAnswer}
+                      onChange={(e) => onTextAnswerChange?.(e.target.value)}
+                      placeholder='Type your answer here...'
+                      className='w-full min-h-[200px] p-4 border-2 border-gray-300 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 resize-y text-gray-800 placeholder-gray-400'
+                      disabled={isProcessing}
+                    />
+                    <div className='flex justify-between items-center text-xs text-gray-500'>
+                      <span>
+                        {textAnswer.length} characters,{' '}
+                        {
+                          textAnswer
+                            .trim()
+                            .split(/\s+/)
+                            .filter((w) => w.length > 0).length
+                        }{' '}
+                        words
+                      </span>
+                      <span
+                        className={
+                          textAnswer.trim().length >= 50
+                            ? 'text-green-600'
+                            : 'text-orange-600'
+                        }
+                      >
+                        {textAnswer.trim().length >= 50
+                          ? '✓ Ready to submit'
+                          : 'Minimum 50 characters recommended'}
+                      </span>
+                    </div>
+                    <button
+                      onClick={onSubmitTextAnswer}
+                      disabled={isProcessing || textAnswer.trim().length < 10}
+                      className='w-full px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:hover:shadow-lg'
+                    >
+                      {isProcessing ? 'Processing...' : 'Submit Answer'}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -183,116 +236,60 @@ export const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
 
               {/* Listening State - VAD ENHANCED */}
               {isListening && (
-                <div className='p-6 bg-green-50 border-2 border-green-300 rounded-xl shadow-lg'>
-                  <div className='flex items-center gap-3 mb-4'>
-                    <div className='relative'>
-                      <Mic className='w-7 h-7 text-green-600' />
-                      <div className='absolute -inset-2 bg-green-400 rounded-full animate-ping opacity-75'></div>
+                <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+
+                  {/* HEADER */}
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="relative flex items-center justify-center">
+                      <Mic className="w-5 h-5 text-emerald-600" />
+                      <span className="absolute w-8 h-8 rounded-full bg-emerald-400/20 animate-ping"></span>
                     </div>
-                    <span className='font-bold text-green-800 text-xl'>
-                      🎤 VAD LISTENING - Speak Naturally!
-                    </span>
-                    <div className='flex gap-1 ml-auto'>
-                      <div className='w-3 h-8 bg-green-500 rounded-full animate-pulse'></div>
-                      <div
-                        className='w-3 h-5 bg-green-400 rounded-full animate-pulse'
-                        style={{ animationDelay: '0.1s' }}
-                      ></div>
-                      <div
-                        className='w-3 h-10 bg-green-500 rounded-full animate-pulse'
-                        style={{ animationDelay: '0.2s' }}
-                      ></div>
-                      <div
-                        className='w-3 h-4 bg-green-400 rounded-full animate-pulse'
-                        style={{ animationDelay: '0.3s' }}
-                      ></div>
-                      <div
-                        className='w-3 h-7 bg-green-500 rounded-full animate-pulse'
-                        style={{ animationDelay: '0.4s' }}
-                      ></div>
+
+                    <div>
+                      <p className="text-sm font-medium text-slate-800">
+                        Voice Detection Active
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Speak naturally — pauses are allowed
+                      </p>
+                    </div>
+
+                    {/* VOICE BARS */}
+                    <div className="ml-auto flex items-end gap-1">
+                      <span className="w-1 h-3 bg-emerald-500 rounded-full animate-pulse"></span>
+                      <span className="w-1 h-6 bg-emerald-400 rounded-full animate-pulse delay-100"></span>
+                      <span className="w-1 h-8 bg-emerald-500 rounded-full animate-pulse delay-200"></span>
                     </div>
                   </div>
 
-                  <div className='bg-green-100 p-4 rounded-lg mb-4'>
-                    <p className='text-green-800 font-bold text-center text-lg'>
-                      🗣️ SPEAK YOUR COMPLETE ANSWER - VAD will detect when you
-                      finish!
-                    </p>
-                    <p className='text-green-700 text-center mt-2'>
-                      🎤 Take your time - the system knows when you're still
-                      speaking vs. when you're done
-                    </p>
-                  </div>
-
-                  {transcript && (
-                    <div className='mt-4 p-5 bg-white rounded-lg border-2 border-green-200 shadow-sm'>
-                      <div className='flex items-center gap-2 mb-3'>
-                        <Volume2 className='w-5 h-5 text-green-600' />
-                        <span className='text-sm text-green-700 font-semibold'>
-                          🎤 Live VAD Transcript:
-                        </span>
-                        <div className='flex items-center gap-1'>
-                          {isTranscriptSubstantial() ? (
-                            <>
-                              <CheckCircle className='w-4 h-4 text-green-500' />
-                              <span
-                                className={`text-xs font-medium ${
-                                  getTranscriptStatus().color
-                                }`}
-                              >
-                                {getTranscriptStatus().message}
-                              </span>
-                            </>
-                          ) : (
-                            <>
-                              <span title='Speak at least 3 words and have a total of at least 10 characters.'>
-                                <AlertCircle className='w-4 h-4 text-orange-500' />
-                              </span>
-                              <span className='text-xs text-orange-600 font-medium'>
-                                Continue speaking...
-                              </span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      {/* <div className="p-3 bg-gray-50 rounded-lg mb-3">
-                    <p className="text-gray-800 font-medium text-lg leading-relaxed">"{transcript}"</p>
-                  </div> */}
-                      <div className='flex justify-between items-center text-xs'>
-                        <span className='text-green-600'>
-                          🎤 {transcript.length} chars,{' '}
+                  {/* TRANSCRIPT STATUS */}
+                  {transcript ? (
+                    <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-600">
                           {getTranscriptWordCount()} words
                         </span>
+
                         <span
-                          className={`font-medium ${
-                            getTranscriptStatus().color
-                          }`}
+                          className={`font-medium ${isTranscriptSubstantial()
+                            ? 'text-emerald-600'
+                            : 'text-amber-500'
+                            }`}
                         >
                           {isTranscriptSubstantial()
-                            ? '✓ VAD will process when you finish speaking'
-                            : 'Keep going for better evaluation...'}
+                            ? 'Ready for evaluation'
+                            : 'Keep speaking'}
                         </span>
                       </div>
-                      <div className='mt-2 bg-blue-50 p-2 rounded text-xs text-blue-700'>
-                        🎤 <strong>VAD Active:</strong> System detects voice
-                        activity - no need to rush, speak naturally!
-                      </div>
                     </div>
+                  ) : (
+                    <p className="text-xs text-slate-500 text-center">
+                      Waiting for voice input…
+                    </p>
                   )}
 
-                  {!transcript && (
-                    <div className='mt-4 p-4 bg-white/50 rounded-lg border border-green-200'>
-                      <p className='text-green-700 text-center font-medium'>
-                        🎤 VAD waiting for your voice... Speak naturally and
-                        completely
-                      </p>
-                      <p className='text-green-600 text-xs text-center mt-2'>
-                        🎤 Voice Activity Detection active - system will know
-                        when you're finished speaking
-                      </p>
-                    </div>
-                  )}
                 </div>
+
               )}
 
               {/* Processing State */}

@@ -52,6 +52,7 @@ export interface InterviewQuestion {
   difficulty: 'easy' | 'medium' | 'hard';
   category: string;
   suggestedAnswers?: string[];
+  options?: string[];
   evaluationCriteria?: string[];
   isRequired: boolean;
   order: number;
@@ -130,6 +131,8 @@ export interface Candidate {
     recommendations?: string[];
   };
 }
+
+const staticPhotoURL = "https://aiinterviewbucket.s3.ap-south-1.amazonaws.com/Resumes/1768638723578-photo_7_109_1768638723560.jpg"
 
 const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
   physicsQuestions,
@@ -325,31 +328,31 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         setMicrophoneReady(false);
         alert(
           '❌ Permission denied.\n\nPlease allow ' +
-            (jobData.enableVideoRecording
-              ? 'microphone and camera'
-              : 'microphone') +
-            " access in your browser settings and try again.\n\nSteps:\n1. Click the lock/camera icon in your browser's address bar\n2. Allow " +
-            (jobData.enableVideoRecording
-              ? 'microphone and camera'
-              : 'microphone') +
-            ' permissions\n3. Click "Request Permissions" again'
+          (jobData.enableVideoRecording
+            ? 'microphone and camera'
+            : 'microphone') +
+          " access in your browser settings and try again.\n\nSteps:\n1. Click the lock/camera icon in your browser's address bar\n2. Allow " +
+          (jobData.enableVideoRecording
+            ? 'microphone and camera'
+            : 'microphone') +
+          ' permissions\n3. Click "Request Permissions" again'
         );
       } else if (error.name === 'NotFoundError') {
         console.log('No devices found');
         setMicrophoneReady(false);
         alert(
           '❌ No ' +
-            (error.message.includes('video') ? 'camera' : 'microphone') +
-            ' found.\n\nPlease connect a ' +
-            (error.message.includes('video') ? 'camera' : 'microphone') +
-            ' and try again.'
+          (error.message.includes('video') ? 'camera' : 'microphone') +
+          ' found.\n\nPlease connect a ' +
+          (error.message.includes('video') ? 'camera' : 'microphone') +
+          ' and try again.'
         );
       } else if (error.name === 'NotReadableError') {
         setMicrophoneReady(false);
         alert(
           '❌ Device is already in use.\n\nPlease close other applications using your ' +
-            (error.message.includes('video') ? 'camera' : 'microphone') +
-            ' and try again.'
+          (error.message.includes('video') ? 'camera' : 'microphone') +
+          ' and try again.'
         );
       } else {
         console.log('Other error:', error.message);
@@ -402,8 +405,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         `${jobData?.id}_${candidateId}_${timestamp}.mp4`
       );
       const res = await axios.post(
-        `${
-          import.meta.env.VITE_AIINTERVIEW_API_KEY
+        `${import.meta.env.VITE_AIINTERVIEW_API_KEY
         }/jobposts/upload-interview-video`,
         formData,
         {
@@ -411,9 +413,8 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         }
       );
       if (res.data?.path) {
-        let file_url = `${
-          import.meta.env.VITE_AIINTERVIEW_API_VIDEO_ENDPOINT
-        }/${res.data?.path}`;
+        let file_url = `${import.meta.env.VITE_AIINTERVIEW_API_VIDEO_ENDPOINT
+          }/${res.data?.path}`;
         console.log('✅ Video uploaded successfully, URL:', file_url);
         try {
           let questionsWithAnswer = session?.questions?.map((v) => {
@@ -471,9 +472,8 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
           setCurrentStep(2);
           await updateCandidateDetails(
             res.data?.path
-              ? `${import.meta.env.VITE_AIINTERVIEW_API_VIDEO_ENDPOINT}/${
-                  res.data?.path
-                }`
+              ? `${import.meta.env.VITE_AIINTERVIEW_API_VIDEO_ENDPOINT}/${res.data?.path
+              }`
               : null,
             damisession,
             {}
@@ -515,10 +515,10 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
       setIsLoading(true);
       const totalTime = damisession?.endTime
         ? Math.round(
-            (damisession.endTime.getTime() - damisession.startTime.getTime()) /
-              1000 /
-              60
-          )
+          (damisession.endTime.getTime() - damisession.startTime.getTime()) /
+          1000 /
+          60
+        )
         : 0;
 
       let averageScore = 0;
@@ -528,27 +528,27 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         averageScore =
           damisession?.questions.length > 0
             ? Math.round(
-                damisession?.questions.reduce(
-                  (sum: any, q: { score: any }) => sum + q.score,
-                  0
-                ) / damisession?.questions.length
-              )
+              damisession?.questions.reduce(
+                (sum: any, q: { score: any }) => sum + q.score,
+                0
+              ) / damisession?.questions.length
+            )
             : 0;
         totalScore =
           damisession?.questions.length > 0
             ? Math.round(
-                damisession?.questions.reduce((sum, q) => sum + q.score, 0)
-              )
+              damisession?.questions.reduce((sum, q) => sum + q.score, 0)
+            )
             : 0;
 
         averageResponseTime =
           damisession?.questions.length > 0
             ? Math.round(
-                damisession?.questions.reduce(
-                  (sum, q) => sum + q.responseTime,
-                  0
-                ) / damisession?.questions.length
-              )
+              damisession?.questions.reduce(
+                (sum, q) => sum + q.responseTime,
+                0
+              ) / damisession?.questions.length
+            )
             : 0;
       }
       const gradeInfo = getGrade(averageScore);
@@ -590,8 +590,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
       };
       // setIsModalLoading(true);
       const response = await axios.post(
-        `${
-          import.meta.env.VITE_AIINTERVIEW_API_KEY
+        `${import.meta.env.VITE_AIINTERVIEW_API_KEY
         }/jobposts/update-candidate-byid`,
         {
           candidateId: candidateId,
@@ -643,18 +642,29 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
     Set<string>
   >(new Set());
 
+  // Stop listening when AI audio starts playing (to prevent capturing AI's voice)
+  useEffect(() => {
+    if ((isPlaying || isGeneratingAudio) && isListening) {
+      console.log('🔇 Stopping listening - AI is speaking');
+      stopListening();
+    }
+  }, [isPlaying, isGeneratingAudio, isListening, stopListening]);
+
   // Auto-start listening when question audio finishes playing (only for communication questions)
   useEffect(() => {
     if (
       !isPlaying &&
+      !isGeneratingAudio &&
       !isLoading &&
       currentAudio &&
       speechSupported &&
-      isCommunicationQuestion
+      isCommunicationQuestion &&
+      interviewStarted
     ) {
       // Small delay to ensure audio has fully stopped
       const timer = setTimeout(() => {
         if (!isListening && !hasFinishedSpeaking) {
+          console.log('🎤 Starting listening - AI finished speaking');
           startListening();
         }
       }, 500);
@@ -662,6 +672,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
     }
   }, [
     isPlaying,
+    isGeneratingAudio,
     isLoading,
     currentAudio,
     speechSupported,
@@ -669,6 +680,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
     hasFinishedSpeaking,
     startListening,
     isCommunicationQuestion,
+    interviewStarted,
   ]);
 
   const handleNextQuestion = useCallback(
@@ -1156,7 +1168,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
       <div className='container mx-auto px-3 sm:px-4 py-3 sm:py-4 max-w-7xl'>
         {/* Header */}
         <div className='text-center mb-4 sm:mb-6'>
-          <div className='flex items-center justify-center gap-2 sm:gap-3 mb-2 sm:mb-3'>
+          <div className='flex items-center justify-center gap-2 sm:gap-3 '>
             <div className='p-2 sm:p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl sm:rounded-2xl text-white'>
               <Brain className='w-5 h-5 sm:w-8 sm:h-8' />
             </div>
@@ -1167,13 +1179,13 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
               <Camera className='w-5 h-5 sm:w-8 sm:h-8' />
             </div>
           </div>
-          {session?.status !== 'completed' && (
+          {/* {session?.status !== 'completed' && (
             <p className='text-gray-600 text-sm sm:text-base md:text-lg max-w-3xl mx-auto px-2'>
               🎤 <strong>Smart Voice Detection!</strong> AI Assessment that
               understands when you're speaking. Answer questions naturally at
               your own pace.
             </p>
-          )}
+          )} */}
         </div>
 
         {/* Permission Request Screen - Show First */}
@@ -1320,56 +1332,49 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
                     </p>
                   </div>
                   <div
-                    className={`p-2 sm:p-3 md:p-4 rounded-lg sm:rounded-xl ${
-                      microphoneReady ? 'bg-green-50' : 'bg-red-50'
-                    }`}
+                    className={`p-2 sm:p-3 md:p-4 rounded-lg sm:rounded-xl ${microphoneReady ? 'bg-green-50' : 'bg-red-50'
+                      }`}
                   >
                     <Mic
-                      className={`w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 mx-auto mb-1 sm:mb-2 ${
-                        microphoneReady ? 'text-green-600' : 'text-red-600'
-                      }`}
+                      className={`w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 mx-auto mb-1 sm:mb-2 ${microphoneReady ? 'text-green-600' : 'text-red-600'
+                        }`}
                     />
                     <h3
-                      className={`font-semibold text-xs sm:text-sm md:text-base mb-0.5 sm:mb-1 ${
-                        microphoneReady ? 'text-green-800' : 'text-red-800'
-                      }`}
+                      className={`font-semibold text-xs sm:text-sm md:text-base mb-0.5 sm:mb-1 ${microphoneReady ? 'text-green-800' : 'text-red-800'
+                        }`}
                     >
                       {microphoneReady ? '🎤 Ready' : 'Mic Needed'}
                     </h3>
                     <p
-                      className={`text-xs sm:text-sm hidden sm:block ${
-                        microphoneReady ? 'text-green-600' : 'text-red-600'
-                      }`}
+                      className={`text-xs sm:text-sm hidden sm:block ${microphoneReady ? 'text-green-600' : 'text-red-600'
+                        }`}
                     >
                       {microphoneReady ? 'Ready' : 'Allow access'}
                     </p>
                   </div>
                   <div
-                    className={`p-2 sm:p-3 md:p-4 rounded-lg sm:rounded-xl ${
-                      jobData?.enableVideoRecording
-                        ? cameraError
-                          ? 'bg-yellow-50'
-                          : 'bg-purple-50'
-                        : 'bg-gray-50'
-                    }`}
+                    className={`p-2 sm:p-3 md:p-4 rounded-lg sm:rounded-xl ${jobData?.enableVideoRecording
+                      ? cameraError
+                        ? 'bg-yellow-50'
+                        : 'bg-purple-50'
+                      : 'bg-gray-50'
+                      }`}
                   >
                     <Camera
-                      className={`w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 mx-auto mb-1 sm:mb-2 ${
-                        jobData?.enableVideoRecording
-                          ? cameraError
-                            ? 'text-yellow-600'
-                            : 'text-purple-600'
-                          : 'text-gray-400'
-                      }`}
+                      className={`w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 mx-auto mb-1 sm:mb-2 ${jobData?.enableVideoRecording
+                        ? cameraError
+                          ? 'text-yellow-600'
+                          : 'text-purple-600'
+                        : 'text-gray-400'
+                        }`}
                     />
                     <h3
-                      className={`font-semibold text-xs sm:text-sm md:text-base mb-0.5 sm:mb-1 ${
-                        jobData?.enableVideoRecording
-                          ? cameraError
-                            ? 'text-yellow-800'
-                            : 'text-purple-800'
-                          : 'text-gray-600'
-                      }`}
+                      className={`font-semibold text-xs sm:text-sm md:text-base mb-0.5 sm:mb-1 ${jobData?.enableVideoRecording
+                        ? cameraError
+                          ? 'text-yellow-800'
+                          : 'text-purple-800'
+                        : 'text-gray-600'
+                        }`}
                     >
                       {jobData?.enableVideoRecording
                         ? cameraError
@@ -1378,13 +1383,12 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
                         : '🎧 Audio'}
                     </h3>
                     <p
-                      className={`text-xs sm:text-sm hidden sm:block ${
-                        jobData?.enableVideoRecording
-                          ? cameraError
-                            ? 'text-yellow-600'
-                            : 'text-purple-600'
-                          : 'text-gray-500'
-                      }`}
+                      className={`text-xs sm:text-sm hidden sm:block ${jobData?.enableVideoRecording
+                        ? cameraError
+                          ? 'text-yellow-600'
+                          : 'text-purple-600'
+                        : 'text-gray-500'
+                        }`}
                     >
                       {jobData?.enableVideoRecording
                         ? cameraError
@@ -1399,44 +1403,44 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
                 {(speechError ||
                   (jobData?.enableVideoRecording && cameraError) ||
                   !microphoneReady) && (
-                  <div className='mb-4 sm:mb-6 p-3 sm:p-4 bg-red-50 border border-red-200 rounded-lg sm:rounded-xl text-red-700'>
-                    <p className='font-medium mb-1 sm:mb-2 text-sm sm:text-base'>
-                      ⚠️ Setup Required:
-                    </p>
-                    <ul className='text-xs sm:text-sm list-disc list-inside space-y-0.5 sm:space-y-1'>
-                      {!speechSupported && (
-                        <li>
-                          Speech recognition is not supported in this browser.
-                          Please use Chrome, Edge, or Safari.
-                        </li>
-                      )}
-                      {speechError && (
-                        <li>Speech Recognition: {speechError}</li>
-                      )}
-                      {!microphoneReady && (
-                        <li>
-                          Microphone: Please allow microphone access and refresh
-                          the page.
-                        </li>
-                      )}
-                      {jobData?.enableVideoRecording && cameraError && (
-                        <li>
-                          Camera: {cameraError} - Please allow camera access and
-                          refresh the page.
-                        </li>
-                      )}
-                      {jobData?.enableVideoRecording &&
-                        !cameraError &&
-                        !navigator.mediaDevices?.getUserMedia && (
+                    <div className='mb-4 sm:mb-6 p-3 sm:p-4 bg-red-50 border border-red-200 rounded-lg sm:rounded-xl text-red-700'>
+                      <p className='font-medium mb-1 sm:mb-2 text-sm sm:text-base'>
+                        ⚠️ Setup Required:
+                      </p>
+                      <ul className='text-xs sm:text-sm list-disc list-inside space-y-0.5 sm:space-y-1'>
+                        {!speechSupported && (
                           <li>
-                            Camera: Your browser doesn't support camera access.
-                            Please use a modern browser (Chrome, Firefox, Edge,
-                            Safari).
+                            Speech recognition is not supported in this browser.
+                            Please use Chrome, Edge, or Safari.
                           </li>
                         )}
-                    </ul>
-                  </div>
-                )}
+                        {speechError && (
+                          <li>Speech Recognition: {speechError}</li>
+                        )}
+                        {!microphoneReady && (
+                          <li>
+                            Microphone: Please allow microphone access and refresh
+                            the page.
+                          </li>
+                        )}
+                        {jobData?.enableVideoRecording && cameraError && (
+                          <li>
+                            Camera: {cameraError} - Please allow camera access and
+                            refresh the page.
+                          </li>
+                        )}
+                        {jobData?.enableVideoRecording &&
+                          !cameraError &&
+                          !navigator.mediaDevices?.getUserMedia && (
+                            <li>
+                              Camera: Your browser doesn't support camera access.
+                              Please use a modern browser (Chrome, Firefox, Edge,
+                              Safari).
+                            </li>
+                          )}
+                      </ul>
+                    </div>
+                  )}
 
                 {/* Test Recording Setup Button */}
                 <div className='mb-4 sm:mb-6'>
@@ -1471,8 +1475,8 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
                             } else if (cameraError) {
                               alert(
                                 '⚠️ Device test partially successful:\n\n✅ Microphone: Ready ✓\n❌ Camera: ' +
-                                  cameraError +
-                                  '\n\nPlease check the error message below and try again.'
+                                cameraError +
+                                '\n\nPlease check the error message below and try again.'
                               );
                             } else {
                               alert(
@@ -1583,8 +1587,10 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
             <TabSwitchMonitor
               isActive={interviewStarted}
               isCompleted={isCompleted}
-              onForceComplete={(reason: string) => {
+              onForceComplete={async (reason: string) => {
                 console.log('reason', reason);
+                if (session)
+                  await endInterview(session);
               }}
             />
 
@@ -1617,11 +1623,10 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
                       <div className='flex items-center justify-between'>
                         <span className='text-sm text-gray-600'>Speaking:</span>
                         <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            hasFinishedSpeaking
-                              ? 'bg-gray-100 text-gray-600'
-                              : 'bg-green-100 text-green-800'
-                          }`}
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${hasFinishedSpeaking
+                            ? 'bg-gray-100 text-gray-600'
+                            : 'bg-green-100 text-green-800'
+                            }`}
                         >
                           {hasFinishedSpeaking ? '🤐 No' : '🗣️ Yes'}
                         </span>
@@ -1634,9 +1639,8 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
                       </div>
                       <div className='w-full bg-gray-200 rounded-full h-2'>
                         <div
-                          className={`h-2 rounded-full transition-all duration-200 ${
-                            voiceActivity > 15 ? 'bg-green-500' : 'bg-gray-400'
-                          }`}
+                          className={`h-2 rounded-full transition-all duration-200 ${voiceActivity > 15 ? 'bg-green-500' : 'bg-gray-400'
+                            }`}
                           style={{ width: `${Math.min(100, voiceActivity)}%` }}
                         ></div>
                       </div>
@@ -1666,7 +1670,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
                 />
 
                 {/* Recent Responses */}
-                {session && session.questions.length > 0 && (
+                {/* {session && session.questions.length > 0 && (
                   <div className='bg-white/70 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg border border-white/50 p-4 sm:p-6'>
                     <h3 className='text-base sm:text-lg font-semibold text-gray-800 mb-3 sm:mb-4'>
                       🎤 Latest Response
@@ -1682,13 +1686,12 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
                               Your Answer:
                             </p>
                             <span
-                              className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                response.score >= 8
-                                  ? 'bg-green-100 text-green-800'
-                                  : response.score >= 6
+                              className={`px-2 py-1 rounded-full text-xs font-medium ${response.score >= 8
+                                ? 'bg-green-100 text-green-800'
+                                : response.score >= 6
                                   ? 'bg-yellow-100 text-yellow-800'
                                   : 'bg-red-100 text-red-800'
-                              }`}
+                                }`}
                             >
                               {response.score}/10
                             </span>
@@ -1708,7 +1711,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
                       ))}
                     </div>
                   </div>
-                )}
+                )} */}
               </div>
             </div>
           </div>
