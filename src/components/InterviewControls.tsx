@@ -8,7 +8,7 @@ import {
   Clock,
   FileText,
 } from 'lucide-react';
-import { InterviewSession } from './InterviewInterface';
+import { InterviewSession } from '../types';
 
 interface InterviewControlsProps {
   isListening: boolean;

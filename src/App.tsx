@@ -2,8 +2,9 @@ import axios from 'axios';
 import React, { useEffect, useState } from 'react';
 import './App.css';
 import InterviewInterface from './components/InterviewInterface';
-import NameEmailModal, { JobPost } from './components/NameEmailModal';
+import NameEmailModal from './components/NameEmailModal';
 import NoQuestionData from './components/NoQuestionData';
+import { JobPost } from './types';
 
 let staticFetchQueData = {
   message: 'Access granted successfully',
@@ -35,6 +36,8 @@ let staticFetchQueData = {
       updatedAt: '2026-01-17T08:45:08.318Z',
       jobPostId: 7,
       suggestedAnswerPoints: [],
+      options: ['Corporate Income Tax', 'Zakat'],
+      rightAnswer: 'Corporate Income Tax',
     },
     {
       id: 147,
@@ -48,6 +51,8 @@ let staticFetchQueData = {
       updatedAt: '2026-01-17T08:45:08.389Z',
       jobPostId: 7,
       suggestedAnswerPoints: [],
+      options: ['Corporate Income Tax', 'Zakat'],
+      rightAnswer: 'Corporate Income Tax',
     },
     {
       id: 148,
@@ -61,6 +66,8 @@ let staticFetchQueData = {
       updatedAt: '2026-01-17T08:45:08.469Z',
       jobPostId: 7,
       suggestedAnswerPoints: [],
+      options: ['Corporate Income Tax', 'Zakat'],
+      rightAnswer: 'Corporate Income Tax',
     },
     {
       id: 149,
@@ -74,6 +81,8 @@ let staticFetchQueData = {
       updatedAt: '2026-01-17T08:45:08.555Z',
       jobPostId: 7,
       suggestedAnswerPoints: [],
+      options: ['Corporate Income Tax', 'Zakat'],
+      rightAnswer: 'Corporate Income Tax',
     },
     {
       id: 150,
@@ -86,6 +95,8 @@ let staticFetchQueData = {
       updatedAt: '2026-01-17T08:45:08.623Z',
       jobPostId: 7,
       suggestedAnswerPoints: [],
+      options: ['Corporate Income Tax', 'Zakat'],
+      rightAnswer: 'Corporate Income Tax',
     },
     {
       id: 151,
@@ -99,6 +110,8 @@ let staticFetchQueData = {
       updatedAt: '2026-01-17T08:45:08.688Z',
       jobPostId: 7,
       suggestedAnswerPoints: [],
+      options: ['Corporate Income Tax', 'Zakat'],
+      rightAnswer: 'Corporate Income Tax',
     },
     {
       id: 152,
@@ -112,6 +125,8 @@ let staticFetchQueData = {
       updatedAt: '2026-01-17T08:45:08.812Z',
       jobPostId: 7,
       suggestedAnswerPoints: [],
+      options: ['Corporate Income Tax', 'Zakat'],
+      rightAnswer: 'Corporate Income Tax',
     },
     {
       id: 153,
@@ -1340,7 +1355,6 @@ const App: React.FC = () => {
                 fetchQueData={fetchQueData}
                 candidateId={candidateId}
                 jobData={jobData}
-                token={token}
               />
             )
           ) : (

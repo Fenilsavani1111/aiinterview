@@ -1,15 +1,6 @@
 import React from 'react';
 import { Cross as Progress, Clock, Award } from 'lucide-react';
-import { InterviewSession } from './InterviewInterface';
-
-interface QuestionResponse {
-  question: string;
-  userAnswer: string;
-  aiEvaluation: string;
-  score: number;
-  timestamp: Date;
-  responseTime: number;
-}
+import { InterviewSession } from '../types';
 
 interface InterviewProgressProps {
   session: InterviewSession;
@@ -28,9 +19,9 @@ export const InterviewProgress: React.FC<InterviewProgressProps> = ({
   const averageScore =
     session.questions.length > 0
       ? Math.round(
-          session.questions.reduce((sum, q) => sum + q.score, 0) /
-            session.questions.length
-        )
+        session.questions.reduce((sum, q) => sum + q.score, 0) /
+        session.questions.length
+      )
       : 0;
 
   return (

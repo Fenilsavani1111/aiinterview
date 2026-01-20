@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { Camera } from 'lucide-react';
-import { JobPost } from './NameEmailModal';
+import { JobPost } from '../types';
 
 const CaptureLivePhoto = ({
   stream,
@@ -274,8 +274,7 @@ const CaptureLivePhoto = ({
       }
 
       await axios.post(
-        `${
-          import.meta.env.VITE_AIINTERVIEW_API_KEY
+        `${import.meta.env.VITE_AIINTERVIEW_API_KEY
         }/jobposts/update-candidate-byid`,
         {
           candidateId: candidateId,

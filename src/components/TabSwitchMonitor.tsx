@@ -7,7 +7,7 @@ interface TabSwitchMonitorProps {
 }
 
 const MAX_VIOLATIONS = 2; // 1st warning, 2nd terminate
-const COOLDOWN_MS = 1000;
+const VIOLATION_RESET_MS = 1500; // window to group events
 
 const TabSwitchMonitor: React.FC<TabSwitchMonitorProps> = ({
   isActive,
@@ -16,7 +16,11 @@ const TabSwitchMonitor: React.FC<TabSwitchMonitorProps> = ({
 }) => {
   const violationCountRef = useRef(0);
   const terminatedRef = useRef(false);
-  const lastViolationTimeRef = useRef(0);
+
+  // 🔐 prevents multiple counts for same action
+  const violationLockedRef = useRef(false);
+  const violationTimerRef = useRef<number | null>(null);
+
   const lastWindowSizeRef = useRef({
     width: window.innerWidth,
     height: window.innerHeight,
@@ -27,7 +31,6 @@ const TabSwitchMonitor: React.FC<TabSwitchMonitorProps> = ({
 
     const terminateAssessment = (reason: string) => {
       if (terminatedRef.current) return;
-
       terminatedRef.current = true;
 
       alert(
@@ -40,19 +43,22 @@ const TabSwitchMonitor: React.FC<TabSwitchMonitorProps> = ({
     };
 
     const registerViolation = (reason: string) => {
-      const now = Date.now();
+      // 🚫 already counted for this action
+      if (violationLockedRef.current) return;
 
-      // 🛡️ Prevent duplicate triggers
-      if (now - lastViolationTimeRef.current < COOLDOWN_MS) return;
+      violationLockedRef.current = true;
 
-      lastViolationTimeRef.current = now;
       violationCountRef.current += 1;
 
       console.warn(
         `🚨 Proctoring Violation: ${reason} | Count: ${violationCountRef.current}`
       );
-      console.log('violationCountRef.current=-=-=--=--=', violationCountRef.current, MAX_VIOLATIONS);
-      console.log('reason=-=-=--=--=', reason);
+
+      // unlock after grouping window
+      violationTimerRef.current = window.setTimeout(() => {
+        violationLockedRef.current = false;
+      }, VIOLATION_RESET_MS);
+
       if (violationCountRef.current >= MAX_VIOLATIONS) {
         terminateAssessment(reason);
       } else {
@@ -64,32 +70,38 @@ const TabSwitchMonitor: React.FC<TabSwitchMonitorProps> = ({
       }
     };
 
-    // 🔴 TAB SWITCH
+    // ✅ TAB SWITCH (PRIMARY SIGNAL)
     const handleVisibilityChange = () => {
-      if (document.hidden) registerViolation('TAB_SWITCH');
+      if (document.hidden) {
+        registerViolation('TAB_SWITCH');
+      }
     };
 
-    // 🔴 APP SWITCH / ALT+TAB / MINIMIZE
+    // ✅ APP SWITCH / MINIMIZE
     const handleBlur = () => {
+      // Ignore blur if tab already hidden (same incident)
+      if (document.hidden) return;
       registerViolation('WINDOW_BLUR_OR_MINIMIZE');
     };
 
-    // 🔴 FULLSCREEN EXIT
+    // ✅ FULLSCREEN EXIT
     const handleFullscreenExit = () => {
-      if (!document.fullscreenElement) {
+      if (!document.fullscreenElement && !document.hidden) {
         registerViolation('EXIT_FULLSCREEN');
       }
     };
 
-    // 🔴 WINDOW RESIZE
+    // ✅ WINDOW RESIZE
     const handleResize = () => {
+      // Ignore resize while tab hidden
+      if (document.hidden) return;
+
       const { innerWidth, innerHeight } = window;
       const last = lastWindowSizeRef.current;
 
-      // Ignore very small changes (scrollbar, OS UI)
       if (
-        Math.abs(innerWidth - last.width) > 50 ||
-        Math.abs(innerHeight - last.height) > 50
+        Math.abs(innerWidth - last.width) > 80 ||
+        Math.abs(innerHeight - last.height) > 80
       ) {
         registerViolation('WINDOW_RESIZE');
       }
@@ -110,6 +122,10 @@ const TabSwitchMonitor: React.FC<TabSwitchMonitorProps> = ({
       window.removeEventListener('blur', handleBlur);
       document.removeEventListener('fullscreenchange', handleFullscreenExit);
       window.removeEventListener('resize', handleResize);
+
+      if (violationTimerRef.current) {
+        clearTimeout(violationTimerRef.current);
+      }
     };
   }, [isActive, isCompleted, onForceComplete]);
 

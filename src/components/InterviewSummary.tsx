@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Award, TrendingUp, MessageSquare, Eye, XCircle } from 'lucide-react';
-import { Candidate, InterviewSession } from './InterviewInterface';
+import { Candidate, InterviewSession } from '../types';
 import { motion } from 'framer-motion';
 
 interface InterviewSummaryProps {
@@ -130,11 +130,10 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                     <>
                       <div className='text-center'>
                         <div
-                          className={`text-4xl font-bold mb-2 ${
-                            getScoreColor(
-                              candidateData?.overallScore ?? 0
-                            ).split(' ')[0]
-                          }`}
+                          className={`text-4xl font-bold mb-2 ${getScoreColor(
+                            candidateData?.overallScore ?? 0
+                          ).split(' ')[0]
+                            }`}
                         >
                           {candidateData?.overallScore}%
                         </div>
@@ -244,11 +243,10 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                         <button
                           key={tab.id}
                           onClick={() => setActiveTab(tab.id)}
-                          className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm ${
-                            activeTab === tab.id
+                          className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm ${activeTab === tab.id
                               ? 'border-blue-500 text-blue-600'
                               : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                          }`}
+                            }`}
                         >
                           <tab.icon className='h-4 w-4' />
                           <span>{tab.label}</span>
@@ -332,15 +330,14 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                               </div>
                               <div className='w-full bg-gray-200 rounded-full h-3'>
                                 <div
-                                  className={`h-3 rounded-full transition-all duration-1000 ${
-                                    item.score >= 90
+                                  className={`h-3 rounded-full transition-all duration-1000 ${item.score >= 90
                                       ? 'bg-green-500'
                                       : item.score >= 80
-                                      ? 'bg-blue-500'
-                                      : item.score >= 70
-                                      ? 'bg-yellow-500'
-                                      : 'bg-red-500'
-                                  }`}
+                                        ? 'bg-blue-500'
+                                        : item.score >= 70
+                                          ? 'bg-yellow-500'
+                                          : 'bg-red-500'
+                                    }`}
                                   style={{ width: `${item.score}%` }}
                                 ></div>
                               </div>
@@ -415,7 +412,7 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                         </h3>
                         <div className='space-y-4'>
                           {candidateData?.quickStats &&
-                          Object.keys(candidateData.quickStats).length > 0 ? (
+                            Object.keys(candidateData.quickStats).length > 0 ? (
                             Object.entries(candidateData.quickStats).map(
                               ([skill, data]: any) => (
                                 <div
@@ -550,15 +547,14 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                                 </div>
                                 <div className='w-full bg-gray-200 rounded-full h-2 mb-2'>
                                   <div
-                                    className={`h-2 rounded-full ${
-                                      data.overallAveragePercentage >= 90
+                                    className={`h-2 rounded-full ${data.overallAveragePercentage >= 90
                                         ? 'bg-green-500'
                                         : data.overallAveragePercentage >= 80
-                                        ? 'bg-blue-500'
-                                        : data.overallAveragePercentage >= 70
-                                        ? 'bg-yellow-500'
-                                        : 'bg-red-500'
-                                    }`}
+                                          ? 'bg-blue-500'
+                                          : data.overallAveragePercentage >= 70
+                                            ? 'bg-yellow-500'
+                                            : 'bg-red-500'
+                                      }`}
                                     style={{
                                       width: `${data.overallAveragePercentage}%`,
                                     }}
@@ -689,15 +685,14 @@ const renderAnalysis = (title: string, score: number) => {
       </div>
       <div className='w-full bg-gray-200 rounded-full h-2'>
         <div
-          className={`h-2 rounded-full ${
-            score >= 90
+          className={`h-2 rounded-full ${score >= 90
               ? 'bg-green-500'
               : score >= 80
-              ? 'bg-blue-500'
-              : score >= 70
-              ? 'bg-yellow-500'
-              : 'bg-red-500'
-          }`}
+                ? 'bg-blue-500'
+                : score >= 70
+                  ? 'bg-yellow-500'
+                  : 'bg-red-500'
+            }`}
           style={{
             width: `${score}%`,
           }}

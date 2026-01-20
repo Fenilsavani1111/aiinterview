@@ -13,7 +13,7 @@ import {
 import axios from 'axios';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min?url';
-import { InterviewQuestion } from './InterviewInterface';
+import { JobPost } from '../types';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
@@ -42,25 +42,6 @@ interface Props {
   token?: string;
 }
 
-export interface JobPost {
-  id?: string;
-  jobTitle: string;
-  company: string;
-  department: string;
-  location: string;
-  jobType: 'full-time' | 'part-time' | 'contract' | 'internship';
-  experienceLevel: string;
-  jobDescription: string;
-  salaryMin: number;
-  salaryMax: number;
-  salaryCurrency: string;
-  questions: InterviewQuestion[];
-  requirements: string[];
-  responsibilities: string[];
-  skills: string[];
-  candidates?: [];
-  enableVideoRecording?: boolean;
-}
 
 const NameEmailModal: React.FC<Props> = ({
   isOpen,
@@ -146,7 +127,7 @@ const NameEmailModal: React.FC<Props> = ({
         .matches(/^[+]?[\d\s\-()]+$/, 'Please enter a valid phone number')
         .min(10, 'Phone number must be at least 10 digits')
         .required('Please enter your phone number'),
-        dob: Yup.string().required('Please enter your date of birth (DD/MM/YYYY)'),  
+      dob: Yup.string().required('Please enter your date of birth (DD/MM/YYYY)'),
       highestQualification: Yup.string().required(
         'Please select your highest qualification'
       ),
@@ -308,8 +289,7 @@ const NameEmailModal: React.FC<Props> = ({
       setEmailVerificationError(null);
 
       const response = await axios.post(
-        `${
-          import.meta.env.VITE_AIINTERVIEW_API_KEY
+        `${import.meta.env.VITE_AIINTERVIEW_API_KEY
         }/jobposts/verify-email-for-interview`,
         {
           token: actualToken,
@@ -547,11 +527,10 @@ const NameEmailModal: React.FC<Props> = ({
                         First Name <span className='text-red-600'>*</span>
                       </label>
                       <input
-                        className={`border ${
-                          errors.firstName && touched.firstName
+                        className={`border ${errors.firstName && touched.firstName
                             ? 'border-red-300 bg-red-50'
                             : 'border-gray-300 bg-white'
-                        } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
+                          } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
                         type='text'
                         placeholder='Enter your first name'
                         name='firstName'
@@ -570,11 +549,10 @@ const NameEmailModal: React.FC<Props> = ({
                         Last Name <span className='text-red-600'>*</span>
                       </label>
                       <input
-                        className={`border ${
-                          errors.lastName && touched.lastName
+                        className={`border ${errors.lastName && touched.lastName
                             ? 'border-red-300 bg-red-50'
                             : 'border-gray-300 bg-white'
-                        } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
+                          } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
                         type='text'
                         placeholder='Enter your last name'
                         name='lastName'
@@ -594,13 +572,12 @@ const NameEmailModal: React.FC<Props> = ({
                       Email Address <span className='text-red-600'>*</span>
                     </label>
                     <input
-                      className={`border ${
-                        isEmailVerified
+                      className={`border ${isEmailVerified
                           ? 'border-green-500 bg-green-50'
                           : errors.email && touched.email
-                          ? 'border-red-300 bg-red-50'
-                          : 'border-gray-300 bg-white'
-                      } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
+                            ? 'border-red-300 bg-red-50'
+                            : 'border-gray-300 bg-white'
+                        } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
                       type='email'
                       name='email'
                       placeholder='your.email@example.com'
@@ -629,50 +606,48 @@ const NameEmailModal: React.FC<Props> = ({
                   </div>
 
                   <div className='grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5'>
-                  <div>
-                    <label className='block text-gray-700 text-sm mb-2 text-left'>
-                      Phone Number <span className='text-red-600'>*</span>
-                    </label>
-                    <input
-                      className={`border ${
-                        errors.mobile && touched.mobile
-                          ? 'border-red-300 bg-red-50'
-                          : 'border-gray-300 bg-white'
-                      } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
-                      type='tel'
-                      name='mobile'
-                      placeholder='e.g., +1 234-567-8900 or 1234567890'
-                      value={values.mobile}
-                      onChange={handleChange}
-                    />
-                    {errors.mobile && touched.mobile && (
-                      <p className='text-red-600 text-xs mt-1 text-left'>
-                        {errors.mobile}
-                      </p>
-                    )}
-                  </div>
+                    <div>
+                      <label className='block text-gray-700 text-sm mb-2 text-left'>
+                        Phone Number <span className='text-red-600'>*</span>
+                      </label>
+                      <input
+                        className={`border ${errors.mobile && touched.mobile
+                            ? 'border-red-300 bg-red-50'
+                            : 'border-gray-300 bg-white'
+                          } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
+                        type='tel'
+                        name='mobile'
+                        placeholder='e.g., +1 234-567-8900 or 1234567890'
+                        value={values.mobile}
+                        onChange={handleChange}
+                      />
+                      {errors.mobile && touched.mobile && (
+                        <p className='text-red-600 text-xs mt-1 text-left'>
+                          {errors.mobile}
+                        </p>
+                      )}
+                    </div>
 
-                  <div>
-                    <label className='block text-gray-700 text-sm mb-2 text-left'>
-                      Date of Birth <span className='text-red-600'>*</span>
-                    </label>
-                    <input
-                      className={`border ${
-                        errors.dob && touched.dob
-                          ? 'border-red-300 bg-red-50'
-                          : 'border-gray-300 bg-white'
-                      } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
-                      type='date'
-                      name='dob'
-                      value={values.dob}
-                      onChange={handleChange}
-                    />
-                    {errors.dob && touched.dob && (
-                      <p className='text-red-600 text-xs mt-1 text-left'>
-                        {errors.dob}
-                      </p>
-                    )}
-                  </div>
+                    <div>
+                      <label className='block text-gray-700 text-sm mb-2 text-left'>
+                        Date of Birth <span className='text-red-600'>*</span>
+                      </label>
+                      <input
+                        className={`border ${errors.dob && touched.dob
+                            ? 'border-red-300 bg-red-50'
+                            : 'border-gray-300 bg-white'
+                          } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
+                        type='date'
+                        name='dob'
+                        value={values.dob}
+                        onChange={handleChange}
+                      />
+                      {errors.dob && touched.dob && (
+                        <p className='text-red-600 text-xs mt-1 text-left'>
+                          {errors.dob}
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   {/* Resume Upload */}
@@ -746,12 +721,11 @@ const NameEmailModal: React.FC<Props> = ({
                       onChange={(e) =>
                         setFieldValue('highestQualification', e.target.value)
                       }
-                      className={`w-full px-4 py-3 border ${
-                        errors.highestQualification &&
-                        touched.highestQualification
+                      className={`w-full px-4 py-3 border ${errors.highestQualification &&
+                          touched.highestQualification
                           ? 'border-red-300 bg-red-50'
                           : 'border-gray-300 bg-white'
-                      } text-gray-800 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm sm:text-base`}
+                        } text-gray-800 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm sm:text-base`}
                     >
                       <option value=''>
                         Choose your highest qualification
@@ -804,11 +778,10 @@ const NameEmailModal: React.FC<Props> = ({
                               Percentage (%)
                             </label>
                             <input
-                              className={`border ${
-                                errors.degreeEducation?.percentage
+                              className={`border ${errors.degreeEducation?.percentage
                                   ? 'border-red-300 bg-red-50'
                                   : 'border-gray-300 bg-white'
-                              } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
+                                } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
                               type='text'
                               placeholder='e.g., 85.5'
                               value={values.degreeEducation.percentage}
@@ -830,11 +803,10 @@ const NameEmailModal: React.FC<Props> = ({
                               Year of Passing
                             </label>
                             <input
-                              className={`border ${
-                                errors.degreeEducation?.yearOfPassing
+                              className={`border ${errors.degreeEducation?.yearOfPassing
                                   ? 'border-red-300 bg-red-50'
                                   : 'border-gray-300 bg-white'
-                              } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
+                                } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
                               type='text'
                               placeholder='e.g., 2020'
                               value={values.degreeEducation.yearOfPassing}
@@ -892,11 +864,10 @@ const NameEmailModal: React.FC<Props> = ({
                               Percentage (%)
                             </label>
                             <input
-                              className={`border ${
-                                errors.plusTwoEducation?.percentage
+                              className={`border ${errors.plusTwoEducation?.percentage
                                   ? 'border-red-300 bg-red-50'
                                   : 'border-gray-300 bg-white'
-                              } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
+                                } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
                               type='text'
                               placeholder='e.g., 85.5'
                               value={values.plusTwoEducation.percentage}
@@ -918,11 +889,10 @@ const NameEmailModal: React.FC<Props> = ({
                               Year of Passing
                             </label>
                             <input
-                              className={`border ${
-                                errors.plusTwoEducation?.yearOfPassing
+                              className={`border ${errors.plusTwoEducation?.yearOfPassing
                                   ? 'border-red-300 bg-red-50'
                                   : 'border-gray-300 bg-white'
-                              } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
+                                } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
                               type='text'
                               placeholder='e.g., 2018'
                               value={values.plusTwoEducation.yearOfPassing}
@@ -981,11 +951,10 @@ const NameEmailModal: React.FC<Props> = ({
                               Percentage (%)
                             </label>
                             <input
-                              className={`border ${
-                                errors.tenthEducation?.percentage
+                              className={`border ${errors.tenthEducation?.percentage
                                   ? 'border-red-300 bg-red-50'
                                   : 'border-gray-300 bg-white'
-                              } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
+                                } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
                               type='text'
                               placeholder='e.g., 90.2'
                               value={values.tenthEducation.percentage}
@@ -1007,11 +976,10 @@ const NameEmailModal: React.FC<Props> = ({
                               Year of Passing
                             </label>
                             <input
-                              className={`border ${
-                                errors.tenthEducation?.yearOfPassing
+                              className={`border ${errors.tenthEducation?.yearOfPassing
                                   ? 'border-red-300 bg-red-50'
                                   : 'border-gray-300 bg-white'
-                              } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
+                                } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
                               type='text'
                               placeholder='e.g., 2016'
                               value={values.tenthEducation.yearOfPassing}
@@ -1038,11 +1006,10 @@ const NameEmailModal: React.FC<Props> = ({
                       Current Location <span className='text-red-600'>*</span>
                     </label>
                     <input
-                      className={`border ${
-                        errors.location && touched.location
+                      className={`border ${errors.location && touched.location
                           ? 'border-red-300 bg-red-50'
                           : 'border-gray-300 bg-white'
-                      } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
+                        } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
                       type='text'
                       name='location'
                       placeholder='e.g., New York, USA or Bangalore, India'
