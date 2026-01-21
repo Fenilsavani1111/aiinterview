@@ -156,8 +156,7 @@ let staticFetchQueData = {
     },
     {
       id: 155,
-      question:
-        'How do you assess the effectiveness of your tax compliance processes?',
+      question: 'How do you assess the effectiveness of your tax compliance processes?',
       type: 'reasoning',
       difficulty: 'medium',
       duration: 120,
@@ -208,8 +207,7 @@ let staticFetchQueData = {
     },
     {
       id: 159,
-      question:
-        'How would you handle a situation where a client is unhappy with your tax advice?',
+      question: 'How would you handle a situation where a client is unhappy with your tax advice?',
       type: 'communication',
       difficulty: 'medium',
       duration: 150,
@@ -234,8 +232,7 @@ let staticFetchQueData = {
     },
     {
       id: 161,
-      question:
-        'How do you ensure that your written tax documentation is clear and comprehensive?',
+      question: 'How do you ensure that your written tax documentation is clear and comprehensive?',
       type: 'communication',
       difficulty: 'medium',
       duration: 120,
@@ -247,8 +244,7 @@ let staticFetchQueData = {
     },
     {
       id: 162,
-      question:
-        'What methods do you use to communicate tax changes to your clients effectively?',
+      question: 'What methods do you use to communicate tax changes to your clients effectively?',
       type: 'communication',
       difficulty: 'medium',
       duration: 120,
@@ -260,8 +256,7 @@ let staticFetchQueData = {
     },
     {
       id: 163,
-      question:
-        'How do you handle feedback from clients regarding your tax services?',
+      question: 'How do you handle feedback from clients regarding your tax services?',
       type: 'communication',
       difficulty: 'medium',
       duration: 150,
@@ -468,8 +463,7 @@ let staticFetchQueData = {
     },
     {
       id: 179,
-      question:
-        'How do you handle pressure when facing tight deadlines for tax compliance?',
+      question: 'How do you handle pressure when facing tight deadlines for tax compliance?',
       type: 'subjective',
       difficulty: 'medium',
       duration: 120,
@@ -481,8 +475,7 @@ let staticFetchQueData = {
     },
     {
       id: 180,
-      question:
-        'What role do you believe technology plays in modern tax consulting?',
+      question: 'What role do you believe technology plays in modern tax consulting?',
       type: 'subjective',
       difficulty: 'medium',
       duration: 120,
@@ -533,8 +526,7 @@ let staticFetchQueData = {
     },
     {
       id: 184,
-      question:
-        'What do you consider the biggest challenge in the field of tax consulting today?',
+      question: 'What do you consider the biggest challenge in the field of tax consulting today?',
       type: 'subjective',
       difficulty: 'medium',
       duration: 120,
@@ -603,8 +595,7 @@ let staticJobData = {
     },
     {
       id: 210,
-      requirement:
-        'Strong knowledge of Saudi Tax regulations, Zakat, VAT, and Withholding Tax',
+      requirement: 'Strong knowledge of Saudi Tax regulations, Zakat, VAT, and Withholding Tax',
       createdAt: '2026-01-17T08:45:07.864Z',
       updatedAt: '2026-01-17T08:45:07.864Z',
       jobPostId: 7,
@@ -648,8 +639,7 @@ let staticJobData = {
     },
     {
       id: 293,
-      responsibility:
-        'Provide advisory services to ensure regulatory compliance',
+      responsibility: 'Provide advisory services to ensure regulatory compliance',
       createdAt: '2026-01-17T08:45:07.964Z',
       updatedAt: '2026-01-17T08:45:07.964Z',
       jobPostId: 7,
@@ -809,8 +799,7 @@ let staticJobData = {
     },
     {
       id: 155,
-      question:
-        'How do you assess the effectiveness of your tax compliance processes?',
+      question: 'How do you assess the effectiveness of your tax compliance processes?',
       type: 'reasoning',
       difficulty: 'medium',
       duration: 120,
@@ -861,8 +850,7 @@ let staticJobData = {
     },
     {
       id: 159,
-      question:
-        'How would you handle a situation where a client is unhappy with your tax advice?',
+      question: 'How would you handle a situation where a client is unhappy with your tax advice?',
       type: 'communication',
       difficulty: 'medium',
       duration: 150,
@@ -887,8 +875,7 @@ let staticJobData = {
     },
     {
       id: 161,
-      question:
-        'How do you ensure that your written tax documentation is clear and comprehensive?',
+      question: 'How do you ensure that your written tax documentation is clear and comprehensive?',
       type: 'communication',
       difficulty: 'medium',
       duration: 120,
@@ -900,8 +887,7 @@ let staticJobData = {
     },
     {
       id: 162,
-      question:
-        'What methods do you use to communicate tax changes to your clients effectively?',
+      question: 'What methods do you use to communicate tax changes to your clients effectively?',
       type: 'communication',
       difficulty: 'medium',
       duration: 120,
@@ -913,8 +899,7 @@ let staticJobData = {
     },
     {
       id: 163,
-      question:
-        'How do you handle feedback from clients regarding your tax services?',
+      question: 'How do you handle feedback from clients regarding your tax services?',
       type: 'communication',
       difficulty: 'medium',
       duration: 150,
@@ -1121,8 +1106,7 @@ let staticJobData = {
     },
     {
       id: 179,
-      question:
-        'How do you handle pressure when facing tight deadlines for tax compliance?',
+      question: 'How do you handle pressure when facing tight deadlines for tax compliance?',
       type: 'subjective',
       difficulty: 'medium',
       duration: 120,
@@ -1134,8 +1118,7 @@ let staticJobData = {
     },
     {
       id: 180,
-      question:
-        'What role do you believe technology plays in modern tax consulting?',
+      question: 'What role do you believe technology plays in modern tax consulting?',
       type: 'subjective',
       difficulty: 'medium',
       duration: 120,
@@ -1186,8 +1169,7 @@ let staticJobData = {
     },
     {
       id: 184,
-      question:
-        'What do you consider the biggest challenge in the field of tax consulting today?',
+      question: 'What do you consider the biggest challenge in the field of tax consulting today?',
       type: 'subjective',
       difficulty: 'medium',
       duration: 120,
@@ -1215,12 +1197,14 @@ let staticJobData = {
 
 const App: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
-  const [fetchQueData, setFetchQueData] = useState<any>(null);
-  const [interviewQuestions, setInterviewQuestions] = useState<any[]>([]);
-  const [candidateId, setCandidateId] = useState<string | null>(null);
+  const [fetchQueData, setFetchQueData] = useState<any>(staticFetchQueData);
+  const [interviewQuestions, setInterviewQuestions] = useState<any[]>([
+    ...staticFetchQueData.questions,
+  ]);
+  const [candidateId, setCandidateId] = useState<string | null>('109');
   const [isModalLoading, setIsModalLoading] = useState(false);
   const [modalError, setModalError] = useState(null);
-  const [jobData, setJobData] = useState<JobPost | null>(null);
+  const [jobData, setJobData] = useState<JobPost | null>(staticJobData as any);
   const [loading, setLoading] = useState(false);
   const [token, setToken] = useState<string>('');
   let ignore = false;
@@ -1229,8 +1213,7 @@ const App: React.FC = () => {
     try {
       setLoading(true);
       const response = await axios.post(
-        `${import.meta.env.VITE_AIINTERVIEW_API_KEY
-        }/jobposts/get-jobpost-by-token`,
+        `${import.meta.env.VITE_AIINTERVIEW_API_KEY}/jobposts/get-jobpost-by-token`,
         { token: tokenValue },
         {
           headers: {

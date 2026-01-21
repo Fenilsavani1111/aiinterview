@@ -1,29 +1,26 @@
-import React, {
-  useState,
-  useEffect,
-  useCallback,
-  useRef,
-  useMemo,
-} from "react";
-import { Camera, Brain } from "lucide-react";
-import { CameraView } from "./CameraView";
-import { getGrade, InterviewSummary } from "./InterviewSummary";
-import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
-import { useAudioPlayer } from "../hooks/useAudioPlayer";
-import { useCamera } from "../hooks/useCamera";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { Camera, Brain } from 'lucide-react';
+import { CameraView } from './CameraView';
+import { getGrade, InterviewSummary } from './InterviewSummary';
+import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
+import { useAudioPlayer } from '../hooks/useAudioPlayer';
+import { useCamera } from '../hooks/useCamera';
+import { getBehaviouralAnalysis, processPhysicsQuestion } from '../services/apiService';
+import { elevenLabsService } from '../services/elevenLabsService';
+import axios from 'axios';
+import ProcessingInterview from './ProcessingInterview';
+import TabSwitchMonitor from './TabSwitchMonitor';
+import RequestPermission from './RequestPermission';
+import PreAssessmentSetup from './PreAssessmentSetup';
+import { QuestionDisplay } from './QuestionDisplay';
+import MatricsView from './MatricsView';
 import {
-  getBehaviouralAnalysis,
-  processPhysicsQuestion,
-} from "../services/apiService";
-import { elevenLabsService } from "../services/elevenLabsService";
-import axios from "axios";
-import ProcessingInterview from "./ProcessingInterview";
-import TabSwitchMonitor from "./TabSwitchMonitor";
-import RequestPermission from "./RequestPermission";
-import PreAssessmentSetup from "./PreAssessmentSetup";
-import { QuestionDisplay } from "./QuestionDisplay";
-import MatricsView from "./MatricsView";
-import { InterviewSession, JobPost, InterviewQuestion, Candidate, QuestionResponse } from "../types";
+  InterviewSession,
+  JobPost,
+  InterviewQuestion,
+  Candidate,
+  QuestionResponse,
+} from '../types';
 
 interface InterviewInterfaceProps {
   physicsQuestions: InterviewQuestion[];
@@ -35,7 +32,7 @@ interface InterviewInterfaceProps {
 }
 
 const staticPhotoURL =
-  "https://aiinterviewbucket.s3.ap-south-1.amazonaws.com/Resumes/1768638723578-photo_7_109_1768638723560.jpg";
+  'https://aiinterviewbucket.s3.ap-south-1.amazonaws.com/Resumes/1768638723578-photo_7_109_1768638723560.jpg';
 
 const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
   physicsQuestions,
@@ -57,17 +54,19 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
   const [candidateData, setCandidateData] = useState<Candidate | null>(null);
   const [currentStep, setCurrentStep] = useState<number>(0);
   const [isCompleted, setIsCompleted] = useState(false);
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const [isPhotoCaptured, setIsPhotoCaptured] = useState(false);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(staticPhotoURL);
+  const [isPhotoCaptured, setIsPhotoCaptured] = useState(true);
   const [permissionsRequested, setPermissionsRequested] = useState(false);
-  const [textAnswer, setTextAnswer] = useState<string>("");
+  const [textAnswer, setTextAnswer] = useState<string>('');
   const [metrics, setMetrics] = useState<Record<string, unknown>>({});
-  const [alerts, setAlerts] = useState<Array<{ message?: string; type?: string;[k: string]: unknown }>>([]);
+  const [alerts, setAlerts] = useState<
+    Array<{ message?: string; type?: string; [k: string]: unknown }>
+  >([]);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const endInterviewRef = useRef<
-    ((updatedSession: InterviewSession) => Promise<void>) | null
-  >(null);
+  const endInterviewRef = useRef<((updatedSession: InterviewSession) => Promise<void>) | null>(
+    null
+  );
   const interviewEndedRef = useRef(false);
 
   // Shuffle questions with communication type questions first
@@ -88,35 +87,24 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
 
     // Helper to get shuffled questions by type
     const getShuffledByType = (type: string) =>
-      shuffleArray(
-        physicsQuestions.filter(
-          (q) => q.type?.toLowerCase() === type.toLowerCase(),
-        ),
-      );
+      shuffleArray(physicsQuestions.filter((q) => q.type?.toLowerCase() === type.toLowerCase()));
 
     // Fixed order with inner shuffle
-    const behaviour = getShuffledByType("behavioral");
-    const communication = getShuffledByType("communication");
-    const reasoning = getShuffledByType("reasoning");
-    const arithmetic = getShuffledByType("arithmetic");
-    const subjective = getShuffledByType("subjective");
+    const behaviour = getShuffledByType('behavioral');
+    const communication = getShuffledByType('communication');
+    const reasoning = getShuffledByType('reasoning');
+    const arithmetic = getShuffledByType('arithmetic');
+    const subjective = getShuffledByType('subjective');
 
-    return [
-      ...behaviour,
-      ...communication,
-      ...reasoning,
-      ...arithmetic,
-      ...subjective,
-    ];
+    return [...behaviour, ...communication, ...reasoning, ...arithmetic, ...subjective];
   }, [physicsQuestions]);
 
-
-  const currentQuestion =
-    shuffledQuestions[session?.currentQuestionIndex ?? -1];
+  const currentQuestion = shuffledQuestions[session?.currentQuestionIndex ?? -1];
   const isCommunicationQuestion =
-    currentQuestion?.type?.toLowerCase() === "communication" || currentQuestion?.type?.toLowerCase() === "behavioral";
+    currentQuestion?.type?.toLowerCase() === 'communication' ||
+    currentQuestion?.type?.toLowerCase() === 'behavioral';
 
-  let speechError = "";
+  let speechError = '';
   const {
     isListening,
     transcript,
@@ -184,48 +172,34 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
   }, [stream]);
 
   // upload recording to cloud
-  const uploadinterviewvideo = async (
-    file: any,
-    damisession: InterviewSession,
-  ) => {
+  const uploadinterviewvideo = async (file: any, damisession: InterviewSession) => {
     try {
       setCurrentStep(0);
       setIsLoading(true);
       const timestamp = Date.now();
       const formData = new FormData();
-      formData.append("video", file);
-      formData.append(
-        "fileName",
-        `${jobData?.id}_${candidateId}_${timestamp}.mp4`,
-      );
+      formData.append('video', file);
+      formData.append('fileName', `${jobData?.id}_${candidateId}_${timestamp}.mp4`);
       const res = await axios.post(
-        `${import.meta.env.VITE_AIINTERVIEW_API_KEY
-        }/jobposts/upload-interview-video`,
+        `${import.meta.env.VITE_AIINTERVIEW_API_KEY}/jobposts/upload-interview-video`,
         formData,
         {
-          headers: { "Content-Type": "multipart/form-data" },
-        },
+          headers: { 'Content-Type': 'multipart/form-data' },
+        }
       );
       if (res.data?.path) {
-        let file_url = `${import.meta.env.VITE_AIINTERVIEW_API_VIDEO_ENDPOINT
-          }/${res.data?.path}`;
-        console.log("✅ Video uploaded successfully, URL:", file_url);
+        let file_url = `${import.meta.env.VITE_AIINTERVIEW_API_VIDEO_ENDPOINT}/${res.data?.path}`;
+        console.log('✅ Video uploaded successfully, URL:', file_url);
         try {
           let questionsWithAnswer = session?.questions?.map((v) => {
             return {
               ...v,
-              questionDetails: shuffledQuestions?.find(
-                (q) => q.question === v?.question,
-              ),
+              questionDetails: shuffledQuestions?.find((q) => q.question === v?.question),
             };
           });
           setCurrentStep(1);
-          let behavioraldata = await getBehaviouralAnalysis(
-            file_url,
-            questionsWithAnswer,
-            jobData,
-          );
-          if (behavioraldata?.status === "success") {
+          let behavioraldata = await getBehaviouralAnalysis(file_url, questionsWithAnswer, jobData);
+          if (behavioraldata?.status === 'success') {
             let newbehavioraldata = {
               ...behavioraldata,
             };
@@ -240,59 +214,46 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
               delete newbehavioraldata.meta.video_url;
             }
             setCurrentStep(2);
-            await updateCandidateDetails(
-              file_url?.length > 0 ? file_url : null,
-              damisession,
-              {
-                ...newbehavioraldata,
-              },
-            );
+            await updateCandidateDetails(file_url?.length > 0 ? file_url : null, damisession, {
+              ...newbehavioraldata,
+            });
           } else {
             console.warn(
-              "⚠️ Video analysis failed, saving interview data without analysis:",
-              behavioraldata,
+              '⚠️ Video analysis failed, saving interview data without analysis:',
+              behavioraldata
             );
             // Still save interview data even if analysis fails
             setCurrentStep(2);
-            await updateCandidateDetails(
-              file_url?.length > 0 ? file_url : null,
-              damisession,
-              {},
-            );
+            await updateCandidateDetails(file_url?.length > 0 ? file_url : null, damisession, {});
           }
         } catch (error) {
-          console.error("❌ Error during video analysis:", error);
+          console.error('❌ Error during video analysis:', error);
           // Still save interview data even if analysis fails
           setCurrentStep(2);
           await updateCandidateDetails(
             res.data?.path
-              ? `${import.meta.env.VITE_AIINTERVIEW_API_VIDEO_ENDPOINT}/${res.data?.path
-              }`
+              ? `${import.meta.env.VITE_AIINTERVIEW_API_VIDEO_ENDPOINT}/${res.data?.path}`
               : null,
             damisession,
-            {},
+            {}
           );
         }
       } else {
-        console.warn(
-          "⚠️ Video upload response missing path, saving interview data without video",
-        );
+        console.warn('⚠️ Video upload response missing path, saving interview data without video');
         // Still save interview data even if video upload response is invalid
         await updateCandidateDetails(null, damisession, {});
       }
     } catch (error) {
-      console.error("❌ Error uploading video file:", error);
+      console.error('❌ Error uploading video file:', error);
       // Still save interview data even if video upload fails
-      console.log(
-        "💾 Saving interview data without video due to upload error...",
-      );
+      console.log('💾 Saving interview data without video due to upload error...');
       try {
         await updateCandidateDetails(null, damisession, {});
       } catch (saveError) {
-        console.error("❌ Error saving interview data:", saveError);
+        console.error('❌ Error saving interview data:', saveError);
         setCurrentStep(0);
         setErrorText(
-          "Sorry, unable to upload the interview video and save interview data. Please try again.",
+          'Sorry, unable to upload the interview video and save interview data. Please try again.'
         );
         setIsLoading(false);
       }
@@ -303,16 +264,12 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
   const updateCandidateDetails = async (
     videolink: string | null,
     damisession: InterviewSession,
-    interviewoverview: any,
+    interviewoverview: any
   ) => {
     try {
       setIsLoading(true);
       const totalTime = damisession?.endTime
-        ? Math.round(
-          (damisession.endTime.getTime() - damisession.startTime.getTime()) /
-          1000 /
-          60,
-        )
+        ? Math.round((damisession.endTime.getTime() - damisession.startTime.getTime()) / 1000 / 60)
         : 0;
 
       let averageScore = 0;
@@ -322,41 +279,33 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         averageScore =
           damisession?.questions.length > 0
             ? Math.round(
-              damisession?.questions.reduce(
-                (sum: any, q: { score: any }) => sum + q.score,
-                0,
-              ) / damisession?.questions.length,
-            )
+                damisession?.questions.reduce((sum: any, q: { score: any }) => sum + q.score, 0) /
+                  damisession?.questions.length
+              )
             : 0;
         totalScore =
           damisession?.questions.length > 0
-            ? Math.round(
-              damisession?.questions.reduce((sum, q) => sum + q.score, 0),
-            )
+            ? Math.round(damisession?.questions.reduce((sum, q) => sum + q.score, 0))
             : 0;
 
         averageResponseTime =
           damisession?.questions.length > 0
             ? Math.round(
-              damisession?.questions.reduce(
-                (sum, q) => sum + q.responseTime,
-                0,
-              ) / damisession?.questions.length,
-            )
+                damisession?.questions.reduce((sum, q) => sum + q.responseTime, 0) /
+                  damisession?.questions.length
+              )
             : 0;
       }
       const gradeInfo = getGrade(averageScore);
       let newQuestions: any[] = [];
       shuffledQuestions.map((ques: any) => {
         let question = { ...ques };
-        let findquesResp = damisession?.questions?.find(
-          (item) => item.question === ques?.question,
-        );
+        let findquesResp = damisession?.questions?.find((item) => item.question === ques?.question);
         newQuestions.push({
           questionId: question?.id,
           studentId: candidateId,
-          answer: findquesResp?.userAnswer ?? "",
-          aiEvaluation: findquesResp?.aiEvaluation ?? "",
+          answer: findquesResp?.userAnswer ?? '',
+          aiEvaluation: findquesResp?.aiEvaluation ?? '',
           score: findquesResp?.score ?? 0,
           responseTime: findquesResp?.responseTime ?? 0,
           endTime: findquesResp?.endTime,
@@ -364,36 +313,32 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
       });
       let damiscores = {
         communication:
-          interviewoverview?.performanceBreakdown?.communicationSkills
-            ?.overallAveragePercentage ?? 0,
+          interviewoverview?.performanceBreakdown?.communicationSkills?.overallAveragePercentage ??
+          0,
         technical:
-          interviewoverview?.performanceBreakdown?.technicalKnowledge
-            ?.overallAveragePercentage ?? 0,
+          interviewoverview?.performanceBreakdown?.technicalKnowledge?.overallAveragePercentage ??
+          0,
         problemSolving:
-          interviewoverview?.performanceBreakdown?.problemSolving
-            ?.overallAveragePercentage ?? 0,
+          interviewoverview?.performanceBreakdown?.problemSolving?.overallAveragePercentage ?? 0,
         leadership:
-          interviewoverview?.performanceBreakdown?.leadershipPotential
-            ?.overallAveragePercentage ?? 0,
+          interviewoverview?.performanceBreakdown?.leadershipPotential?.overallAveragePercentage ??
+          0,
         bodyLanguage:
-          interviewoverview?.performanceBreakdown?.body_language
-            ?.overallAveragePercentage ?? 0,
+          interviewoverview?.performanceBreakdown?.body_language?.overallAveragePercentage ?? 0,
         confidence:
-          interviewoverview?.performanceBreakdown?.confidenceLevel
-            ?.overallAveragePercentage ?? 0,
+          interviewoverview?.performanceBreakdown?.confidenceLevel?.overallAveragePercentage ?? 0,
       };
       // setIsModalLoading(true);
       const response = await axios.post(
-        `${import.meta.env.VITE_AIINTERVIEW_API_KEY
-        }/jobposts/update-candidate-byid`,
+        `${import.meta.env.VITE_AIINTERVIEW_API_KEY}/jobposts/update-candidate-byid`,
         {
           candidateId: candidateId,
           data: {
-            interviewVideoLink: videolink ?? "",
-            status: "completed",
+            interviewVideoLink: videolink ?? '',
+            status: 'completed',
             interviewDate: new Date(),
             hasRecording: videolink ? true : false,
-            photoUrl: photoUrl ?? "",
+            photoUrl: photoUrl ?? '',
             questions: newQuestions,
             attemptedQuestions: damisession?.questions?.length ?? 0,
             overallScore: averageScore,
@@ -407,9 +352,9 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         },
         {
           headers: {
-            "Content-Type": "application/json",
+            'Content-Type': 'application/json',
           },
-        },
+        }
       );
       if (response.data) {
         setIsCompleted(true);
@@ -417,29 +362,27 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         // You can handle the response here (e.g., save data, show a message, etc.)
         setIsLoading(false);
         setCurrentStep(3);
-        console.log("update candidate details response:", response.data);
+        console.log('update candidate details response:', response.data);
       } else {
-        setErrorText("Failed to save analysis data. Try a different email.");
+        setErrorText('Failed to save analysis data. Try a different email.');
         setCurrentStep(0);
         setIsLoading(false);
       }
     } catch (error: any) {
       setIsLoading(false);
       // Handle error (show error message, etc.)
-      console.error("Error joining job link:", error);
-      setErrorText("Failed to save analysis data. Try a different email.");
+      console.error('Error joining job link:', error);
+      setErrorText('Failed to save analysis data. Try a different email.');
     }
   };
 
   // Track which questions have had audio generated
-  const [generatedAudioQuestions, setGeneratedAudioQuestions] = useState<
-    Set<string>
-  >(new Set());
+  const [generatedAudioQuestions, setGeneratedAudioQuestions] = useState<Set<string>>(new Set());
 
   // Stop listening when AI audio starts playing (to prevent capturing AI's voice)
   useEffect(() => {
     if ((isPlaying || isGeneratingAudio) && isListening) {
-      console.log("🔇 Stopping listening - AI is speaking");
+      console.log('🔇 Stopping listening - AI is speaking');
       stopListening();
     }
   }, [isPlaying, isGeneratingAudio, isListening, stopListening]);
@@ -458,7 +401,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
       // Small delay to ensure audio has fully stopped
       const timer = setTimeout(() => {
         if (!isListening && !hasFinishedSpeaking) {
-          console.log("🎤 Starting listening - AI finished speaking");
+          console.log('🎤 Starting listening - AI finished speaking');
           startListening();
         }
       }, 500);
@@ -479,38 +422,33 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
 
   const handleNextQuestion = useCallback(
     async (answerText?: string) => {
-      if (!session || !currentQuestion || session.status === "completed") {
-        console.log("❌ Not ready to handle answer");
+      if (!session || !currentQuestion || session.status === 'completed') {
+        console.log('❌ Not ready to handle answer');
         return;
       }
 
       const trimmedAnswer = (answerText ?? transcript).trim();
 
       const hasOptions =
-        Array.isArray(currentQuestion?.options) &&
-        currentQuestion.options.length > 0;
+        Array.isArray(currentQuestion?.options) && currentQuestion.options.length > 0;
 
-      const isCommQuestion =
-        currentQuestion?.type?.toLowerCase() === "communication";
+      const isCommQuestion = currentQuestion?.type?.toLowerCase() === 'communication';
 
       // ------------------ VALIDATION ------------------
       if (hasOptions) {
         if (!trimmedAnswer) {
-          console.log("⚠️ Please select an option.");
+          console.log('⚠️ Please select an option.');
           return;
         }
       } else {
         if (trimmedAnswer.length < 10) {
-          console.log("⚠️ Answer too short, waiting for more:", trimmedAnswer);
+          console.log('⚠️ Answer too short, waiting for more:', trimmedAnswer);
           return;
         }
 
         const wordCount = trimmedAnswer.split(/\s+/).filter(Boolean).length;
         if (wordCount < 3) {
-          console.log(
-            "⚠️ Answer has too few words, waiting for more. Words:",
-            wordCount,
-          );
+          console.log('⚠️ Answer has too few words, waiting for more. Words:', wordCount);
           return;
         }
       }
@@ -533,52 +471,45 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         if (!isCommQuestion && hasOptions) {
           // ✅ Non-communication + MCQ → match rightAnswer
           const right = (currentQuestion as any).rightAnswer;
-          const rightTrim = right != null ? String(right).trim() : "";
+          const rightTrim = right != null ? String(right).trim() : '';
 
           if (rightTrim) {
             const correct = trimmedAnswer === rightTrim;
             evaluation = {
               score: correct ? 10 : 0,
-              feedback: correct
-                ? "Correct!"
-                : `Incorrect. The correct answer was: ${rightTrim}.`,
+              feedback: correct ? 'Correct!' : `Incorrect. The correct answer was: ${rightTrim}.`,
             };
           } else {
             evaluation = {
               score: 5,
-              feedback: "Answer recorded.",
+              feedback: 'Answer recorded.',
             };
           }
 
-          console.log("📊 MCQ evaluation:", evaluation);
+          console.log('📊 MCQ evaluation:', evaluation);
         } else {
           // ✅ Communication (any) OR Non-communication without options
-          evaluation = await processPhysicsQuestion(
-            currentQuestion.question,
-            trimmedAnswer,
-          );
+          evaluation = await processPhysicsQuestion(currentQuestion.question, trimmedAnswer);
 
-          console.log("📊 AI evaluation:", evaluation);
+          console.log('📊 AI evaluation:', evaluation);
         }
 
         // ------------------ SPEAK FEEDBACK ------------------
         if (isCommQuestion) {
           setIsGeneratingAudio(true);
           try {
-            console.log("🔊 Speaking feedback...");
-            const feedbackAudio = await elevenLabsService.textToSpeech(
-              evaluation.feedback,
-            );
+            console.log('🔊 Speaking feedback...');
+            const feedbackAudio = await elevenLabsService.textToSpeech(evaluation.feedback);
 
             if (feedbackAudio) {
               setCurrentAudio(feedbackAudio);
               await playAudio(feedbackAudio);
-              console.log("✅ Feedback audio completed");
+              console.log('✅ Feedback audio completed');
             } else {
               await new Promise((resolve) => setTimeout(resolve, 2000));
             }
           } catch (error) {
-            console.error("💥 Error playing feedback:", error);
+            console.error('💥 Error playing feedback:', error);
           }
         } else {
           // ❌ Non-communication → NO SPEECH
@@ -594,10 +525,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
 
         // ------------------ TIMING ------------------
         const responseTime = (Date.now() - questionStartTime) / 1000;
-        const totalResponseTime = session.questions.reduce(
-          (sum, q) => sum + q.responseTime,
-          0,
-        );
+        const totalResponseTime = session.questions.reduce((sum, q) => sum + q.responseTime, 0);
         const endTime = totalResponseTime + responseTime;
 
         // ------------------ SAVE RESPONSE ------------------
@@ -620,8 +548,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         setSession(updatedSession);
 
         // ------------------ NEXT / END ------------------
-        const isLast =
-          session.currentQuestionIndex === shuffledQuestions.length - 1;
+        const isLast = session.currentQuestionIndex === shuffledQuestions.length - 1;
 
         if (isLast && endInterviewRef.current) {
           setTimeout(() => {
@@ -634,7 +561,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
           }, 500);
         }
       } catch (error) {
-        console.error("❌ Failed to process response:", error);
+        console.error('❌ Failed to process response:', error);
         setIsProcessingResponse(false);
       } finally {
         setIsAnalyzing(false);
@@ -650,9 +577,8 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
       shuffledQuestions.length,
       stopListening,
       playAudio,
-    ],
+    ]
   );
-
 
   // Auto-advance to next question when user finishes speaking (only for communication questions)
   useEffect(() => {
@@ -679,11 +605,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
     async (question: any) => {
       if (interviewEndedRef.current) return;
       // Prevent duplicate audio generation for the same question
-      if (
-        generatedAudioQuestions.has(question.id) ||
-        isGeneratingAudio ||
-        isPlaying
-      ) {
+      if (generatedAudioQuestions.has(question.id) || isGeneratingAudio || isPlaying) {
         return;
       }
 
@@ -692,22 +614,20 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
 
       try {
         setQuestionStartTime(Date.now());
-        const voiceResponse = await elevenLabsService.textToSpeech(
-          question?.question,
-        );
+        const voiceResponse = await elevenLabsService.textToSpeech(question?.question);
 
         if (interviewEndedRef.current) return;
         if (voiceResponse) {
-          console.log("🎵 Playing question audio...");
+          console.log('🎵 Playing question audio...');
           setCurrentAudio(voiceResponse);
           await playAudio(voiceResponse);
-          console.log("✅ Question audio completed");
+          console.log('✅ Question audio completed');
         } else {
-          console.log("⚠️ No audio, using delay");
+          console.log('⚠️ No audio, using delay');
           await new Promise((resolve) => setTimeout(resolve, 3000));
         }
       } catch (error) {
-        console.error("Failed to generate question audio:", error);
+        console.error('Failed to generate question audio:', error);
         // Remove from generated set if failed so it can be retried
         setGeneratedAudioQuestions((prev) => {
           const newSet = new Set(prev);
@@ -718,7 +638,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         setIsGeneratingAudio(false);
       }
     },
-    [playAudio, generatedAudioQuestions, isGeneratingAudio, isPlaying],
+    [playAudio, generatedAudioQuestions, isGeneratingAudio, isPlaying]
   );
 
   useEffect(() => {
@@ -727,7 +647,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
       // Reset transcript, text answer, and analysis when moving to new question
       setIsProcessingResponse(false);
       resetTranscript();
-      setTextAnswer("");
+      setTextAnswer('');
 
       // Only generate audio for communication questions
       if (isCommunicationQuestion) {
@@ -738,32 +658,25 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         }, 100);
       }
     }
-  }, [
-    currentQuestion,
-    generateQuestionAudio,
-    resetTranscript,
-    isCommunicationQuestion,
-  ]);
+  }, [currentQuestion, generateQuestionAudio, resetTranscript, isCommunicationQuestion]);
 
   const startInterview = async () => {
     if (!speechSupported) {
       alert(
-        "Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari.",
+        'Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari.'
       );
       return;
     }
 
     if (!microphoneReady) {
-      alert(
-        "Microphone is not ready. Please allow microphone access and refresh the page.",
-      );
+      alert('Microphone is not ready. Please allow microphone access and refresh the page.');
       return;
     }
 
     // Require photo capture before starting interview
     if (!isPhotoCaptured || !photoUrl) {
       alert(
-        "Please capture your live photo before starting the interview. Click 'Capture Live Photo' button.",
+        "Please capture your live photo before starting the interview. Click 'Capture Live Photo' button."
       );
       return;
     }
@@ -771,13 +684,13 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
     // If this job post requires video, ensure camera is available.
     if (jobData?.enableVideoRecording && (!!cameraError || !stream)) {
       alert(
-        "Camera is not ready. Please click 'Test Recording Setup' to grant camera permissions, or refresh the page.",
+        "Camera is not ready. Please click 'Test Recording Setup' to grant camera permissions, or refresh the page."
       );
       return;
     }
 
     try {
-      console.log("🚀 Starting interview...");
+      console.log('🚀 Starting interview...');
 
       // If microphone is already ready, permissions were granted on page load
       // Just verify access without showing pop-up again
@@ -791,13 +704,11 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
             sampleRate: 44100,
           },
         });
-        console.log("✅ Microphone access confirmed");
+        console.log('✅ Microphone access confirmed');
         testStream.getTracks().forEach((track) => track.stop());
         setMicrophoneReady(true);
       } else {
-        console.log(
-          "✅ Microphone already ready (permissions granted on page load)",
-        );
+        console.log('✅ Microphone already ready (permissions granted on page load)');
       }
 
       // Start camera only if video recording is enabled for this job
@@ -806,16 +717,12 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         if (!stream) {
           try {
             await startCamera();
-            console.log("✅ Camera started (video recording enabled)");
+            console.log('✅ Camera started (video recording enabled)');
           } catch (error) {
-            console.warn(
-              "⚠️ Camera failed to start, continuing without camera (audio-only)",
-            );
+            console.warn('⚠️ Camera failed to start, continuing without camera (audio-only)');
           }
         } else {
-          console.log(
-            "✅ Camera already ready (permissions granted on page load)",
-          );
+          console.log('✅ Camera already ready (permissions granted on page load)');
         }
       }
 
@@ -827,7 +734,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         questions: [],
         currentQuestionIndex: 0,
         score: 0,
-        status: "active",
+        status: 'active',
       };
       setSession(newSession);
       setInterviewStarted(true);
@@ -837,32 +744,26 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         setTimeout(async () => {
           try {
             await startRecording();
-            console.log("✅ Video recording started");
+            console.log('✅ Video recording started');
           } catch (error) {
-            console.log(
-              "⚠️ Video recording failed, continuing without video recording",
-            );
+            console.log('⚠️ Video recording failed, continuing without video recording');
           }
         }, 500);
       }
     } catch (error) {
-      console.error("💥 Error starting interview:", error);
-      alert(
-        "Failed to start interview. Please check permissions and try again.",
-      );
+      console.error('💥 Error starting interview:', error);
+      alert('Failed to start interview. Please check permissions and try again.');
     }
   };
 
   // End interview - saves all data collected so far (even if interview ended early)
   const endInterview = useCallback(
     async (updatedSession: InterviewSession) => {
-      console.log("🏁 Ending assessment (early exit or completion)");
+      console.log('🏁 Ending assessment (early exit or completion)');
       interviewEndedRef.current = true;
       setInterviewStarted(false);
       setIsGeneratingAudio(false);
-      setSession((prev) =>
-        prev ? { ...prev, status: "completed", endTime: new Date() } : prev,
-      );
+      setSession((prev) => (prev ? { ...prev, status: 'completed', endTime: new Date() } : prev));
       stopListening();
       stopAudio();
       setIsLoading(true);
@@ -873,31 +774,29 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
       let videoBlobData: { blob: Blob } | null = null;
       if (jobData?.enableVideoRecording) {
         try {
-          console.log("📹 Stopping video recording...");
+          console.log('📹 Stopping video recording...');
           // Wait for recording to stop and blob to be created
           videoBlobData = await Promise.race([
             stopRecording(),
             new Promise<null>((resolve) =>
               setTimeout(() => {
-                console.warn("⏱️ Recording stop timeout after 10 seconds");
+                console.warn('⏱️ Recording stop timeout after 10 seconds');
                 resolve(null);
-              }, 10000),
+              }, 10000)
             ),
           ]);
 
           if (videoBlobData?.blob && videoBlobData.blob.size > 0) {
-            console.log("✅ Video recording stopped, blob captured:", {
+            console.log('✅ Video recording stopped, blob captured:', {
               size: videoBlobData.blob.size,
               type: videoBlobData.blob.type,
             });
           } else {
-            console.warn(
-              "⚠️ Video recording stopped but no blob captured or blob is empty",
-            );
+            console.warn('⚠️ Video recording stopped but no blob captured or blob is empty');
             videoBlobData = null;
           }
         } catch (recordingError) {
-          console.error("❌ Error stopping video recording:", recordingError);
+          console.error('❌ Error stopping video recording:', recordingError);
           videoBlobData = null;
           // Continue without video - save interview data anyway
         }
@@ -909,7 +808,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
           stopCamera();
         }
       } catch (cameraStopError) {
-        console.warn("⚠️ Error stopping camera:", cameraStopError);
+        console.warn('⚠️ Error stopping camera:', cameraStopError);
       }
 
       // Use current session or passed session
@@ -918,7 +817,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         let damisession: InterviewSession = {
           ...currentSession,
           endTime: new Date(),
-          status: "completed",
+          status: 'completed',
         };
 
         // Update session status immediately so UI shows completion
@@ -931,35 +830,29 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
           // This ensures partial interview data is preserved with audio/video recordings
           if (damisession?.questions && damisession.questions.length > 0) {
             console.log(
-              `💾 Saving interview data (${damisession.questions.length} question(s) answered)...`,
+              `💾 Saving interview data (${damisession.questions.length} question(s) answered)...`
             );
 
             if (jobData?.enableVideoRecording) {
               // Video recording mode
               if (videoBlobData?.blob && videoBlobData.blob.size > 0) {
-                console.log(
-                  "📤 Uploading video recording with interview data...",
-                );
+                console.log('📤 Uploading video recording with interview data...');
                 // Upload video and save interview details with video URL - await to ensure completion
                 await uploadinterviewvideo(videoBlobData.blob, damisession);
               } else {
-                console.warn(
-                  "⚠️ No video blob captured, saving interview data without video",
-                );
+                console.warn('⚠️ No video blob captured, saving interview data without video');
                 // No video was captured; still persist interview details without video link
                 // This handles cases where recording failed but interview was completed
                 await updateCandidateDetails(null, damisession, {});
               }
             } else {
               // Audio-only mode – no video upload/analysis
-              console.log("🎤 Audio-only mode: Saving interview data...");
+              console.log('🎤 Audio-only mode: Saving interview data...');
               await updateCandidateDetails(null, damisession, {});
             }
           } else {
             // No questions answered - still save empty interview record to mark as attempted
-            console.log(
-              "⚠️ No questions answered, saving empty interview record",
-            );
+            console.log('⚠️ No questions answered, saving empty interview record');
             if (jobData?.enableVideoRecording) {
               if (videoBlobData?.blob && videoBlobData.blob.size > 0) {
                 // Save video even if no questions answered
@@ -972,28 +865,18 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
             }
           }
         } catch (error) {
-          console.error("❌ Error saving interview data:", error);
-          setErrorText(
-            "Failed to save interview data. Please contact support.",
-          );
+          console.error('❌ Error saving interview data:', error);
+          setErrorText('Failed to save interview data. Please contact support.');
         } finally {
           // Always set loading to false after saving completes (or fails)
           setIsLoading(false);
         }
       } else {
-        console.error("❌ No session data available to save");
+        console.error('❌ No session data available to save');
         setIsLoading(false);
       }
     },
-    [
-      session,
-      stopListening,
-      stopCamera,
-      stopRecording,
-      stopAudio,
-      jobData,
-      updateCandidateDetails,
-    ],
+    [session, stopListening, stopCamera, stopRecording, stopAudio, jobData, updateCandidateDetails]
   );
 
   // Update ref when endInterview changes
@@ -1007,48 +890,47 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
       if (!isCompleted) {
         event.preventDefault();
         event.returnValue =
-          "⚠️ Your assessment is not completed. If you leave now, you will need to start over. Are you sure you want to leave?"; // required for Chrome/Edge/Firefox
-        return "";
+          '⚠️ Your assessment is not completed. If you leave now, you will need to start over. Are you sure you want to leave?'; // required for Chrome/Edge/Firefox
+        return '';
       }
     };
 
     if (!isCompleted) {
-      window.addEventListener("beforeunload", handleBeforeUnload);
+      window.addEventListener('beforeunload', handleBeforeUnload);
     }
     return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, [isCompleted]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-blue-50 to-purple-100">
+    <div className='min-h-screen bg-gradient-to-br from-indigo-50 via-blue-50 to-purple-100'>
       <div
         className={
           interviewStarted && session
-            ? "w-full"
-            : "container mx-auto px-3 sm:px-4 py-3 sm:py-4 max-w-7xl"
+            ? 'w-full'
+            : 'container mx-auto px-3 sm:px-4 py-3 sm:py-4 max-w-7xl'
         }
       >
         {/* Header */}
-        {interviewStarted && session && session.status !== "completed" ? (
-          <header className="sticky top-0 z-50 bg-white/80 backdrop-blur border-b border-slate-200">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        {interviewStarted && session && session.status !== 'completed' ? (
+          <header className='sticky top-0 z-50 bg-white/80 backdrop-blur border-b border-slate-200'>
+            <div className='max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4'>
               <div>
-                <p className="text-xs uppercase tracking-wide text-indigo-500 font-semibold">
+                <p className='text-xs uppercase tracking-wide text-indigo-500 font-semibold'>
                   AI Interview Platform
                 </p>
-                <h1 className="text-lg font-semibold text-slate-900">
-                  {fetchQueData?.jobTitle ?? "Assessment"} Assessment
+                <h1 className='text-lg font-semibold text-slate-900'>
+                  {fetchQueData?.jobTitle ?? 'Assessment'} Assessment
                 </h1>
               </div>
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-slate-500 whitespace-nowrap">
-                  Question {session.currentQuestionIndex + 1} of{" "}
-                  {shuffledQuestions.length}
+              <div className='flex items-center gap-4'>
+                <span className='text-sm text-slate-500 whitespace-nowrap'>
+                  Question {session.currentQuestionIndex + 1} of {shuffledQuestions.length}
                 </span>
-                <div className="w-48 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                <div className='w-48 h-1.5 bg-slate-200 rounded-full overflow-hidden'>
                   <div
-                    className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-300"
+                    className='h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-300'
                     style={{
                       width: `${shuffledQuestions.length ? ((session.currentQuestionIndex + 1) / shuffledQuestions.length) * 100 : 0}%`,
                     }}
@@ -1058,23 +940,22 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
             </div>
           </header>
         ) : (
-          <div className="text-center mb-4 sm:mb-6">
-            <div className="flex items-center justify-center gap-2 sm:gap-3 mb-2 sm:mb-3">
-              <div className="p-2 sm:p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl sm:rounded-2xl text-white">
-                <Brain className="w-5 h-5 sm:w-8 sm:h-8" />
+          <div className='text-center mb-4 sm:mb-6'>
+            <div className='flex items-center justify-center gap-2 sm:gap-3 mb-2 sm:mb-3'>
+              <div className='p-2 sm:p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl sm:rounded-2xl text-white'>
+                <Brain className='w-5 h-5 sm:w-8 sm:h-8' />
               </div>
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                {fetchQueData?.jobTitle ?? "Physics"} Assessment AI
+              <h1 className='text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent'>
+                {fetchQueData?.jobTitle ?? 'Physics'} Assessment AI
               </h1>
-              <div className="p-2 sm:p-3 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl sm:rounded-2xl text-white">
-                <Camera className="w-5 h-5 sm:w-8 sm:h-8" />
+              <div className='p-2 sm:p-3 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl sm:rounded-2xl text-white'>
+                <Camera className='w-5 h-5 sm:w-8 sm:h-8' />
               </div>
             </div>
-            {session?.status !== "completed" && (
-              <p className="text-gray-600 text-sm sm:text-base md:text-lg max-w-3xl mx-auto px-2">
-                <strong>Smart Voice Detection!</strong> AI Assessment that
-                understands when you're speaking. Answer questions naturally at
-                your own pace.
+            {session?.status !== 'completed' && (
+              <p className='text-gray-600 text-sm sm:text-base md:text-lg max-w-3xl mx-auto px-2'>
+                <strong>Smart Voice Detection!</strong> AI Assessment that understands when you're
+                speaking. Answer questions naturally at your own pace.
               </p>
             )}
           </div>
@@ -1089,7 +970,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
             startCamera={startCamera}
           />
         ) : isLoading ? (
-          <div className="max-w-2xl mx-auto">
+          <div className='max-w-2xl mx-auto'>
             <ProcessingInterview currentStep={currentStep} />
           </div>
         ) : !interviewStarted && !session?.status ? (
@@ -1100,7 +981,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
             cameraError={cameraError}
             speechError={speechError}
             speechSupported={speechSupported}
-            candidateId={candidateId ?? ""}
+            candidateId={candidateId ?? ''}
             isPhotoCaptured={isPhotoCaptured}
             photoUrl={photoUrl}
             fetchQueData={fetchQueData}
@@ -1112,7 +993,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
             setIsPhotoCaptured={setIsPhotoCaptured}
             startInterview={startInterview}
           />
-        ) : session?.status === "completed" ? (
+        ) : session?.status === 'completed' ? (
           /* Interview Summary */
           <InterviewSummary
             session={session}
@@ -1123,72 +1004,62 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         ) : (
           <>
             {/* Active Interview (client_example layout) */}
-            <div className="space-y-4 sm:space-y-6 px-3 sm:px-4 py-3 sm:py-4 pb-24 overflow-hidden">
+            <div className='space-y-4 sm:space-y-6 px-3 sm:px-4 py-3 sm:py-4 pb-24 overflow-hidden'>
               <TabSwitchMonitor
                 isActive={interviewStarted}
                 isCompleted={isCompleted}
                 onForceComplete={async (reason: string) => {
-                  console.log("reason", reason);
-                  if (session)
-                    await endInterview(session);
+                  console.log('reason', reason);
+                  // if (session)
+                  //   await endInterview(session);
                 }}
               />
 
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <div className='grid grid-cols-1 lg:grid-cols-12 gap-6'>
                 {/* Left: lg:col-span-4 (client_example) */}
-                <div className="lg:col-span-4 space-y-6">
+                <div className='lg:col-span-4 space-y-6'>
                   <CameraView
                     stream={stream}
                     isRecording={isRecording}
                     error={cameraError}
-                    guidance={
-                      stream
-                        ? "Stay centered • Maintain eye contact"
-                        : undefined
-                    }
-                    isActive={interviewStarted && !!session && session.status === "active"}
-                    jobTitle={fetchQueData?.jobTitle ?? ""}
+                    guidance={stream ? 'Stay centered • Maintain eye contact' : undefined}
+                    isActive={interviewStarted && !!session && session.status === 'active'}
+                    jobTitle={fetchQueData?.jobTitle ?? ''}
                     frameInterval={1000}
                     setMetrics={setMetrics}
                     setAlerts={setAlerts}
                   />
 
                   {/* Voice Status (client_example): emerald bar, waveform, "Voice detected clearly" */}
-                  <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-4">
-                    <h3 className="text-sm font-semibold mb-4 flex items-center gap-2 text-slate-800">
+                  <div className='bg-white rounded-2xl shadow-lg border border-slate-200 p-4'>
+                    <h3 className='text-sm font-semibold mb-4 flex items-center gap-2 text-slate-800'>
                       🎧 Voice Status
                     </h3>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-slate-600">Speaking</span>
+                    <div className='flex items-center justify-between mb-2'>
+                      <span className='text-sm text-slate-600'>Speaking</span>
                       <span
-                        className={`text-xs px-3 py-1 rounded-full font-medium ${isCommunicationQuestion && isListening && !hasFinishedSpeaking ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}
+                        className={`text-xs px-3 py-1 rounded-full font-medium ${isCommunicationQuestion && isListening && !hasFinishedSpeaking ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}
                       >
-                        {isCommunicationQuestion &&
-                          isListening &&
-                          !hasFinishedSpeaking
-                          ? "Active"
-                          : "Inactive"}
+                        {isCommunicationQuestion && isListening && !hasFinishedSpeaking
+                          ? 'Active'
+                          : 'Inactive'}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm text-slate-600">
-                        Voice Strength
-                      </span>
-                      <span className="text-sm font-medium text-slate-700">
-                        {voiceActivity}%
-                      </span>
+                    <div className='flex items-center justify-between mb-3'>
+                      <span className='text-sm text-slate-600'>Voice Strength</span>
+                      <span className='text-sm font-medium text-slate-700'>{voiceActivity}%</span>
                     </div>
-                    <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                    <div className='w-full bg-slate-200 rounded-full h-2 overflow-hidden'>
                       <div
-                        className="h-2 bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full transition-all"
+                        className='h-2 bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full transition-all'
                         style={{ width: `${Math.min(100, voiceActivity)}%` }}
                       />
                     </div>
-                    <div className="mt-4 flex items-end justify-center gap-1 h-8">
+                    <div className='mt-4 flex items-end justify-center gap-1 h-8'>
                       {[3, 6, 8, 5, 7].map((h, i) => (
                         <span
                           key={i}
-                          className="w-1 bg-emerald-500 rounded-full animate-pulse"
+                          className='w-1 bg-emerald-500 rounded-full animate-pulse'
                           style={{
                             height: `${h * 4}px`,
                             animationDelay: `${i * 75}ms`,
@@ -1196,16 +1067,16 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
                         />
                       ))}
                     </div>
-                    <p className="mt-3 text-xs text-slate-500 text-center">
+                    <p className='mt-3 text-xs text-slate-500 text-center'>
                       {isCommunicationQuestion && isListening
-                        ? "Voice detected clearly"
-                        : "Speak when ready"}
+                        ? 'Voice detected clearly'
+                        : 'Speak when ready'}
                     </p>
                   </div>
                 </div>
 
                 {/* Right: lg:col-span-8 (client_example) */}
-                <div className="lg:col-span-8 space-y-6">
+                <div className='lg:col-span-8 space-y-6'>
                   <QuestionDisplay
                     isCommunicationQuestion={isCommunicationQuestion}
                     currentQuestion={currentQuestion}
@@ -1221,45 +1092,39 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
                     handleNextQuestion={handleNextQuestion}
                   />
 
-                  <MatricsView
-                    metrics={metrics}
-                    alerts={alerts}
-                  />
+                  <MatricsView metrics={metrics} alerts={alerts} />
                 </div>
               </div>
             </div>
 
             {/* Footer (client_example): light bg, emoji stats, red gradient button */}
             {session && (
-              <footer className="sticky bottom-0 bg-white/80 backdrop-blur border-t border-slate-200">
-                <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
-                  <div className="flex flex-wrap gap-4 text-sm text-slate-500">
+              <footer className='sticky bottom-0 bg-white/80 backdrop-blur border-t border-slate-200'>
+                <div className='max-w-7xl mx-auto px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3'>
+                  <div className='flex flex-wrap gap-4 text-sm text-slate-500'>
                     <span>
-                      ⏱{" "}
+                      ⏱{' '}
                       {Math.floor((now - session.startTime.getTime()) / 60000)
                         .toString()
-                        .padStart(2, "0")}
+                        .padStart(2, '0')}
                       :
-                      {(
-                        Math.floor((now - session.startTime.getTime()) / 1000) %
-                        60
-                      )
+                      {(Math.floor((now - session.startTime.getTime()) / 1000) % 60)
                         .toString()
-                        .padStart(2, "0")}
+                        .padStart(2, '0')}
                     </span>
                     <span>
-                      📊 Total Score:{" "}
+                      📊 Total Score:{' '}
                       {session.questions.length
                         ? session.questions.reduce((s, q) => s + q.score, 0)
-                        : "--"}
+                        : '--'}
                     </span>
                     <span>✅ Completed: {session.questions.length}</span>
                   </div>
                   <button
-                    type="button"
+                    type='button'
                     onClick={() => endInterview(session)}
                     disabled={isGeneratingAudio || isPlaying}
-                    className="bg-gradient-to-r from-red-500 to-rose-500 hover:opacity-90 transition text-white px-6 py-2 rounded-xl font-medium w-full sm:w-auto disabled:opacity-50"
+                    className='bg-gradient-to-r from-red-500 to-rose-500 hover:opacity-90 transition text-white px-6 py-2 rounded-xl font-medium w-full sm:w-auto disabled:opacity-50'
                   >
                     End Assessment
                   </button>
