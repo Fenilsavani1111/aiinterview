@@ -1197,14 +1197,12 @@ let staticJobData = {
 
 const App: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
-  const [fetchQueData, setFetchQueData] = useState<any>(staticFetchQueData);
-  const [interviewQuestions, setInterviewQuestions] = useState<any[]>([
-    ...staticFetchQueData.questions,
-  ]);
-  const [candidateId, setCandidateId] = useState<string | null>('109');
+  const [fetchQueData, setFetchQueData] = useState<any>(null);
+  const [interviewQuestions, setInterviewQuestions] = useState<any[]>([]);
+  const [candidateId, setCandidateId] = useState<string | null>(null);
   const [isModalLoading, setIsModalLoading] = useState(false);
   const [modalError, setModalError] = useState(null);
-  const [jobData, setJobData] = useState<JobPost | null>(staticJobData as any);
+  const [jobData, setJobData] = useState<JobPost | null>(null);
   const [loading, setLoading] = useState(false);
   const [token, setToken] = useState<string>('');
   let ignore = false;

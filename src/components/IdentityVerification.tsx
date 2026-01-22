@@ -9,13 +9,11 @@ import {
   ShieldCheck,
   FileImage,
 } from 'lucide-react';
-import { JobPost } from '../types';
 
 interface IdentityVerificationProps {
   candidateId: string;
-  jobData: JobPost | null;
   stream: MediaStream | null;
-  onVerified: () => void; // call this to unlock next flow
+  onVerified: (photoUrl: string) => void; // call this to unlock next flow
 }
 
 const ID_TYPES = [
@@ -27,7 +25,6 @@ const ID_TYPES = [
 
 const IdentityVerification: React.FC<IdentityVerificationProps> = ({
   candidateId,
-  jobData,
   stream,
   onVerified,
 }) => {
@@ -44,7 +41,6 @@ const IdentityVerification: React.FC<IdentityVerificationProps> = ({
 
   // Live photo
   const [livePhotoBase64, setLivePhotoBase64] = useState<string | null>(null);
-  const [livePhotoUrl, setLivePhotoUrl] = useState<string | null>(null);
 
   // Verification
   const [loading, setLoading] = useState(false);
@@ -95,7 +91,7 @@ const IdentityVerification: React.FC<IdentityVerificationProps> = ({
   useEffect(() => {
     if (videoRef.current && stream && step === 2) {
       videoRef.current.srcObject = stream;
-      videoRef.current.play().catch(() => {});
+      videoRef.current.play().catch(() => { });
     }
   }, [stream, step]);
 
@@ -114,18 +110,6 @@ const IdentityVerification: React.FC<IdentityVerificationProps> = ({
     const base64 = canvas.toDataURL('image/jpeg', 0.95);
 
     setLivePhotoBase64(base64);
-
-    // upload live photo
-    const blob = await (await fetch(base64)).blob();
-    const formData = new FormData();
-    formData.append('file', blob, `live_${candidateId}.jpg`);
-
-    const uploadRes = await axios.post(
-      `${import.meta.env.VITE_AIINTERVIEW_API_KEY}/jobposts/upload-resume`,
-      formData
-    );
-
-    setLivePhotoUrl(uploadRes.data.file_url);
     setStep(3);
   };
 
@@ -139,9 +123,10 @@ const IdentityVerification: React.FC<IdentityVerificationProps> = ({
       setError(null);
 
       const res = await axios.post(
-        `https://fexo.deepvox.ai/api/sessions/${candidateId}/verify-document`,
+        `${import.meta.env.VITE_PROCTORING_API_URL}/api/verify-document`,
         {
           document: idImageBase64,
+          live_face: livePhotoBase64,
           document_type: idType,
         },
         {
@@ -151,25 +136,37 @@ const IdentityVerification: React.FC<IdentityVerificationProps> = ({
 
       setVerificationResult(res.data);
 
-      // Save to DB
-      await axios.post(
-        `${import.meta.env.VITE_AIINTERVIEW_API_KEY}/jobposts/update-candidate-byid`,
-        {
-          candidateId,
-          data: {
-            idType,
-            idNumber,
-            verified: res.data.verified,
-            similarity: res.data.similarity,
-            documentConfidence: res.data.document_face_confidence,
-            liveConfidence: res.data.live_face_confidence,
-            photoUrl: livePhotoUrl,
-          },
-        }
-      );
 
       if (res.data.verified) {
-        onVerified();
+        // Add live photo to s3
+        // upload live photo
+        const blob = await (await fetch(livePhotoBase64)).blob();
+        const formData = new FormData();
+        formData.append('file', blob, `live_${candidateId}.jpg`);
+
+        const uploadRes = await axios.post(
+          `${import.meta.env.VITE_AIINTERVIEW_API_KEY}/jobposts/upload-resume`,
+          formData
+        );
+        let damiphotourl = uploadRes.data.file_url;
+
+        // Save to DB
+        await axios.post(
+          `${import.meta.env.VITE_AIINTERVIEW_API_KEY}/jobposts/update-candidate-byid`,
+          {
+            candidateId,
+            data: {
+              idType,
+              idNumber,
+              verified: res.data.verified,
+              similarity: res.data.similarity,
+              documentConfidence: res.data.document_face_confidence,
+              liveConfidence: res.data.live_face_confidence,
+              photoUrl: damiphotourl,
+            },
+          }
+        );
+        onVerified(damiphotourl ?? '');
       }
     } catch (err: any) {
       setError(err?.message || 'Verification failed');
@@ -367,11 +364,10 @@ const IdentityVerification: React.FC<IdentityVerificationProps> = ({
 
           {!loading && verificationResult && (
             <div
-              className={`p-6 rounded-2xl border-2 text-left ${
-                verificationResult.verified
-                  ? 'bg-emerald-50/90 border-emerald-200/80 text-emerald-800'
-                  : 'bg-red-50/90 border-red-200/80 text-red-800'
-              }`}
+              className={`p-6 rounded-2xl border-2 text-left ${verificationResult.verified
+                ? 'bg-emerald-50/90 border-emerald-200/80 text-emerald-800'
+                : 'bg-red-50/90 border-red-200/80 text-red-800'
+                }`}
             >
               <div className='flex items-start gap-4'>
                 {verificationResult.verified ? (

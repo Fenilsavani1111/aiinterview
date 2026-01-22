@@ -1,9 +1,5 @@
 import OpenAI from 'openai';
-import {
-  InterviewQuestion,
-  QuestionResponse,
-} from '../components/InterviewInterface';
-import { JobPost } from '../components/NameEmailModal';
+import { InterviewQuestion, JobPost, QuestionResponse } from '../types';
 
 export interface PhysicsEvaluation {
   score: number; // 0-10
@@ -122,7 +118,7 @@ Please analyze this answer contextually and provide appropriate feedback based o
         ];
         feedback =
           positiveResponses[
-            Math.floor(Math.random() * positiveResponses.length)
+          Math.floor(Math.random() * positiveResponses.length)
           ];
       }
       // Detect if student shows partial understanding
@@ -538,23 +534,23 @@ Respond only in this JSON format:
     const evaluation = JSON.parse(responseText);
     let data:
       | {
-          name: string;
-          email: string;
-          phone: string;
-          experienceLevel: string;
-          designation: string;
-          location: string;
-          skills: string[];
-        }
+        name: string;
+        email: string;
+        phone: string;
+        experienceLevel: string;
+        designation: string;
+        location: string;
+        skills: string[];
+      }
       | undefined = evaluation?.job_data ?? {
-      name: '',
-      email: '',
-      phone: '',
-      experienceLevel: '',
-      designation: '',
-      location: '',
-      skills: [],
-    };
+        name: '',
+        email: '',
+        phone: '',
+        experienceLevel: '',
+        designation: '',
+        location: '',
+        skills: [],
+      };
     return data;
   } catch (error) {
     console.log('error', error);
@@ -597,9 +593,9 @@ export const getInterviewOverviewWithAI = async (
 ---
 questions: [
 ${interviewQuestions
-  .map(
-    (v) =>
-      `{
+              .map(
+                (v) =>
+                  `{
   "id": ${v.id},
   "question": ${JSON.stringify(v.question)},
   "type": ${JSON.stringify(v.type)},
@@ -607,28 +603,28 @@ ${interviewQuestions
   "expectedDuration": ${v.expectedDuration},
   "category": ${JSON.stringify(v.category)},
   "suggestedAnswers": [${v.suggestedAnswers
-    ?.map((s) => JSON.stringify(s))
-    .join(', ')}],
+                    ?.map((s: any) => JSON.stringify(s))
+                    .join(', ')}],
   "isRequired": ${v.isRequired},
   "order": ${v.order}
 }`
-  )
-  .join(',\n')}
+              )
+              .join(',\n')}
 ]
 
 candidateAnswers: [
 ${candidateInterview
-  .map(
-    (v) =>
-      `{
+              .map(
+                (v) =>
+                  `{
   "question": ${JSON.stringify(v.question)},
   "userAnswer": ${JSON.stringify(v.userAnswer)},
   "aiEvaluation": ${JSON.stringify(v.aiEvaluation)},
   "score": ${v.score},
   "responseTime": ${v.responseTime}
 }`
-  )
-  .join(',\n')}
+              )
+              .join(',\n')}
 ]
 ---`,
         },
@@ -648,23 +644,18 @@ ${candidateInterview
 
 // get behaviour analysis using python api
 export const getBehaviouralAnalysis = async (
-  video_url: string,
-  questionsWithAnswer: any,
-  jobData: any
+  session_id: string
 ) => {
   try {
-    const response = await fetch(`${import.meta.env.VITE_BEHAVIOUR_API}`, {
+    const response = await fetch(`${import.meta.env.VITE_PROCTORING_API_URL}/api/sessions/${session_id}/end`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        video_url: video_url,
-        questionsWithAnswer: questionsWithAnswer,
-        jobData: jobData,
-      }),
+      body: JSON.stringify({}),
     });
     let res = await response.json();
+    console.log('res', res);
     return res;
   } catch (error: any) {
     console.log('error', error);

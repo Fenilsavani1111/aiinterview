@@ -54,14 +54,18 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
   const [candidateData, setCandidateData] = useState<Candidate | null>(null);
   const [currentStep, setCurrentStep] = useState<number>(0);
   const [isCompleted, setIsCompleted] = useState(false);
-  const [photoUrl, setPhotoUrl] = useState<string | null>(staticPhotoURL);
-  const [isPhotoCaptured, setIsPhotoCaptured] = useState(true);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [isPhotoCaptured, setIsPhotoCaptured] = useState(false);
   const [permissionsRequested, setPermissionsRequested] = useState(false);
   const [textAnswer, setTextAnswer] = useState<string>('');
   const [metrics, setMetrics] = useState<Record<string, unknown>>({});
   const [alerts, setAlerts] = useState<
-    Array<{ message?: string; type?: string; [k: string]: unknown }>
+    Array<{ message?: string; type?: string;[k: string]: unknown }>
   >([]);
+  const [proctoringSessionData, setProctoringSessionData] = useState<{
+    session_id?: string;
+    [key: string]: unknown;
+  } | null>(null);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const endInterviewRef = useRef<((updatedSession: InterviewSession) => Promise<void>) | null>(
@@ -172,7 +176,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
   }, [stream]);
 
   // upload recording to cloud
-  const uploadinterviewvideo = async (file: any, damisession: InterviewSession) => {
+  const uploadinterviewvideo = async (file: any, damisession: InterviewSession, proctoringSessionData: any) => {
     try {
       setCurrentStep(0);
       setIsLoading(true);
@@ -191,28 +195,23 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         let file_url = `${import.meta.env.VITE_AIINTERVIEW_API_VIDEO_ENDPOINT}/${res.data?.path}`;
         console.log('✅ Video uploaded successfully, URL:', file_url);
         try {
-          let questionsWithAnswer = session?.questions?.map((v) => {
-            return {
-              ...v,
-              questionDetails: shuffledQuestions?.find((q) => q.question === v?.question),
-            };
-          });
           setCurrentStep(1);
-          let behavioraldata = await getBehaviouralAnalysis(file_url, questionsWithAnswer, jobData);
+          let behavioraldata = await getBehaviouralAnalysis(proctoringSessionData?.session_id ?? '');
           if (behavioraldata?.status === 'success') {
             let newbehavioraldata = {
               ...behavioraldata,
             };
             // Remove metadata fields that shouldn't be saved to database
-            delete newbehavioraldata?.analysis_settings;
+            delete newbehavioraldata?.alert_history;
+            delete newbehavioraldata?.document_verification;
             delete newbehavioraldata?.status;
-            delete newbehavioraldata?.timestamp;
+            delete newbehavioraldata?.emotion_summary;
+            delete newbehavioraldata?.face_verification_summary;
+            delete newbehavioraldata?.session_id;
+            delete newbehavioraldata?.session_metadata;
             delete newbehavioraldata?.token_consumption;
-            // Keep video_url in meta but don't duplicate it in main data
-            // (video_url is already saved separately as interviewVideoLink)
-            if (newbehavioraldata?.meta) {
-              delete newbehavioraldata.meta.video_url;
-            }
+
+
             setCurrentStep(2);
             await updateCandidateDetails(file_url?.length > 0 ? file_url : null, damisession, {
               ...newbehavioraldata,
@@ -279,9 +278,9 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         averageScore =
           damisession?.questions.length > 0
             ? Math.round(
-                damisession?.questions.reduce((sum: any, q: { score: any }) => sum + q.score, 0) /
-                  damisession?.questions.length
-              )
+              damisession?.questions.reduce((sum: any, q: { score: any }) => sum + q.score, 0) /
+              damisession?.questions.length
+            )
             : 0;
         totalScore =
           damisession?.questions.length > 0
@@ -291,9 +290,9 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         averageResponseTime =
           damisession?.questions.length > 0
             ? Math.round(
-                damisession?.questions.reduce((sum, q) => sum + q.responseTime, 0) /
-                  damisession?.questions.length
-              )
+              damisession?.questions.reduce((sum, q) => sum + q.responseTime, 0) /
+              damisession?.questions.length
+            )
             : 0;
       }
       const gradeInfo = getGrade(averageScore);
@@ -838,7 +837,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
               if (videoBlobData?.blob && videoBlobData.blob.size > 0) {
                 console.log('📤 Uploading video recording with interview data...');
                 // Upload video and save interview details with video URL - await to ensure completion
-                await uploadinterviewvideo(videoBlobData.blob, damisession);
+                await uploadinterviewvideo(videoBlobData.blob, damisession, proctoringSessionData);
               } else {
                 console.warn('⚠️ No video blob captured, saving interview data without video');
                 // No video was captured; still persist interview details without video link
@@ -856,7 +855,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
             if (jobData?.enableVideoRecording) {
               if (videoBlobData?.blob && videoBlobData.blob.size > 0) {
                 // Save video even if no questions answered
-                await uploadinterviewvideo(videoBlobData.blob, damisession);
+                await uploadinterviewvideo(videoBlobData.blob, damisession, proctoringSessionData);
               } else {
                 await updateCandidateDetails(null, damisession, {});
               }
@@ -982,12 +981,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
             speechError={speechError}
             speechSupported={speechSupported}
             candidateId={candidateId ?? ''}
-            isPhotoCaptured={isPhotoCaptured}
-            photoUrl={photoUrl}
             fetchQueData={fetchQueData}
-            setMicrophoneReady={setMicrophoneReady}
-            setShowTestResult={setShowTestResult}
-            startCamera={startCamera}
             stream={stream}
             setPhotoUrl={setPhotoUrl}
             setIsPhotoCaptured={setIsPhotoCaptured}
@@ -1028,6 +1022,10 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
                     frameInterval={1000}
                     setMetrics={setMetrics}
                     setAlerts={setAlerts}
+                    onSessionStart={(sessionData) => {
+                      setProctoringSessionData(sessionData);
+                      console.log('📹 Proctoring session started:', sessionData);
+                    }}
                   />
 
                   {/* Voice Status (client_example): emerald bar, waveform, "Voice detected clearly" */}

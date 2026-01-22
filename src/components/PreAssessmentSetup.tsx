@@ -11,11 +11,10 @@ interface PreAssessmentSetupProps {
   speechSupported: boolean;
   candidateId: string;
   fetchQueData: { jobTitle?: string } | null;
-  setMicrophoneReady: (ready: boolean) => void;
-  setShowTestResult: (ready: boolean) => void;
-  startCamera: () => Promise<void>;
   stream: MediaStream | null;
   startInterview: () => void;
+  setPhotoUrl: (url: string) => void;
+  setIsPhotoCaptured: (captured: boolean) => void;
 }
 
 const PreAssessmentSetup: React.FC<PreAssessmentSetupProps> = ({
@@ -26,11 +25,10 @@ const PreAssessmentSetup: React.FC<PreAssessmentSetupProps> = ({
   speechSupported,
   candidateId,
   fetchQueData,
-  setMicrophoneReady,
-  setShowTestResult,
-  startCamera,
   stream,
   startInterview,
+  setPhotoUrl,
+  setIsPhotoCaptured,
 }) => {
   const [identityVerified, setIdentityVerified] = useState(false);
 
@@ -113,9 +111,12 @@ const PreAssessmentSetup: React.FC<PreAssessmentSetupProps> = ({
         <div className='mt-2'>
           <IdentityVerification
             candidateId={candidateId}
-            jobData={jobData}
             stream={stream}
-            onVerified={() => setIdentityVerified(true)}
+            onVerified={(photoUrl: string) => {
+              setIdentityVerified(true);
+              setPhotoUrl(photoUrl);
+              setIsPhotoCaptured(true);
+            }}
           />
         </div>
 

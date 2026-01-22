@@ -18,10 +18,10 @@ interface CameraViewProps {
   jobTitle?: string;
   proctoringServerUrl?: string;
   frameInterval?: number;
-  onReport?: (report: LiveProctoringReport | null) => void;
   enableProctoring?: boolean;
   setMetrics: (metrics: Record<string, unknown>) => void;
   setAlerts: React.Dispatch<React.SetStateAction<Array<{ message?: string; type?: string;[k: string]: unknown }>>>;
+  onSessionStart?: (sessionData: { session_id: string;[key: string]: unknown }) => void;
 }
 
 export const CameraView: React.FC<CameraViewProps> = ({
@@ -33,20 +33,27 @@ export const CameraView: React.FC<CameraViewProps> = ({
   jobTitle = "",
   proctoringServerUrl,
   frameInterval = 1000,
-  onReport,
   enableProctoring = true,
   setMetrics,
   setAlerts,
+  onSessionStart,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const captureIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sessionIdRef = useRef<string | null>(null);
+  const isInitializingRef = useRef<boolean>(false);
+  const onSessionStartRef = useRef(onSessionStart);
 
   const apiUrl = getProctoringApiUrl(proctoringServerUrl);
   const shouldRun = Boolean(
     enableProctoring && isActive && stream && apiUrl && !error
   );
+
+  // Keep ref updated with latest callback
+  useEffect(() => {
+    onSessionStartRef.current = onSessionStart;
+  }, [onSessionStart]);
 
   useEffect(() => {
     if (videoRef.current && stream) {
@@ -61,7 +68,23 @@ export const CameraView: React.FC<CameraViewProps> = ({
 
   // Live proctoring: session start/end, frame capture
   useEffect(() => {
-    if (!shouldRun) return;
+    if (!shouldRun) {
+      // Clean up if shouldRun becomes false
+      if (captureIntervalRef.current) {
+        clearInterval(captureIntervalRef.current);
+        captureIntervalRef.current = null;
+      }
+      if (sessionIdRef.current) {
+        sessionIdRef.current = null;
+      }
+      isInitializingRef.current = false;
+      return;
+    }
+
+    // Prevent duplicate initialization
+    if (sessionIdRef.current || isInitializingRef.current) {
+      return;
+    }
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -69,29 +92,15 @@ export const CameraView: React.FC<CameraViewProps> = ({
 
     const getUrl = () => getProctoringApiUrl(proctoringServerUrl);
 
-    const endSession = (): Promise<LiveProctoringReport | null> => {
-      const sid = sessionIdRef.current;
-      if (!sid) return Promise.resolve(null);
-      sessionIdRef.current = null;
-      return fetch(`${getUrl()}/api/sessions/${sid}/end`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        keepalive: true,
-      })
-        .then((r) => r.json())
-        .then((d) => d.report ?? null)
-        .catch(() => null);
-    };
-
     const stopProctoring = () => {
       if (captureIntervalRef.current) {
         clearInterval(captureIntervalRef.current);
         captureIntervalRef.current = null;
       }
-      endSession().then((report) => onReport?.(report));
     };
 
     let cancelled = false;
+    isInitializingRef.current = true;
 
     const run = async () => {
       const base = getUrl();
@@ -100,13 +109,18 @@ export const CameraView: React.FC<CameraViewProps> = ({
         const health = await fetch(`${base}/health`);
         if (!health.ok) {
           console.warn("[LiveProctoring] Server health check failed");
+          isInitializingRef.current = false;
           return;
         }
       } catch (e) {
         console.warn("[LiveProctoring] Connection error:", e);
+        isInitializingRef.current = false;
         return;
       }
-      if (cancelled) return;
+      if (cancelled) {
+        isInitializingRef.current = false;
+        return;
+      }
 
       let sid: string;
       try {
@@ -120,19 +134,27 @@ export const CameraView: React.FC<CameraViewProps> = ({
         const data = await res.json();
         if (!data?.success || !data.session_id) {
           console.warn("[LiveProctoring] Failed to start session:", data?.error);
+          isInitializingRef.current = false;
           return;
         }
         sid = data.session_id;
         sessionIdRef.current = sid;
+        isInitializingRef.current = false;
         setMetrics({});
         setAlerts([]);
+
+        // Save session data for parent component
+        onSessionStartRef.current?.({
+          session_id: sid,
+          ...data,
+        });
       } catch (e) {
         console.warn("[LiveProctoring] Error starting session:", e);
+        isInitializingRef.current = false;
         return;
       }
 
       if (cancelled) {
-        endSession().then((r) => onReport?.(r));
         return;
       }
 
@@ -179,8 +201,9 @@ export const CameraView: React.FC<CameraViewProps> = ({
     return () => {
       cancelled = true;
       stopProctoring();
+      isInitializingRef.current = false;
     };
-  }, [shouldRun, jobTitle, frameInterval, proctoringServerUrl, onReport, error]);
+  }, [shouldRun, jobTitle, frameInterval, proctoringServerUrl]);
 
   if (error) {
     return (
