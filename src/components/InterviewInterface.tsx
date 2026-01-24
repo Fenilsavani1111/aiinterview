@@ -60,7 +60,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
   const [textAnswer, setTextAnswer] = useState<string>('');
   const [metrics, setMetrics] = useState<Record<string, unknown>>({});
   const [alerts, setAlerts] = useState<
-    Array<{ message?: string; type?: string;[k: string]: unknown }>
+    Array<{ message?: string; type?: string; [k: string]: unknown }>
   >([]);
   const [proctoringSessionData, setProctoringSessionData] = useState<{
     session_id?: string;
@@ -176,86 +176,48 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
   }, [stream]);
 
   // upload recording to cloud
-  const uploadinterviewvideo = async (file: any, damisession: InterviewSession, proctoringSessionData: any) => {
+  const uploadinterviewvideo = async (
+    file: Blob | null,
+    damisession: InterviewSession,
+    interviewoverview: any
+  ) => {
     try {
       setCurrentStep(0);
       setIsLoading(true);
-      const timestamp = Date.now();
-      const formData = new FormData();
-      formData.append('video', file);
-      formData.append('fileName', `${jobData?.id}_${candidateId}_${timestamp}.mp4`);
-      const res = await axios.post(
-        `${import.meta.env.VITE_AIINTERVIEW_API_KEY}/jobposts/upload-interview-video`,
-        formData,
-        {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        }
-      );
-      if (res.data?.path) {
-        let file_url = `${import.meta.env.VITE_AIINTERVIEW_API_VIDEO_ENDPOINT}/${res.data?.path}`;
-        console.log('✅ Video uploaded successfully, URL:', file_url);
+
+      let file_url: string | null = null;
+
+      /* ---------- VIDEO UPLOAD (OPTIONAL) ---------- */
+      if (file) {
         try {
-          setCurrentStep(1);
-          let behavioraldata = await getBehaviouralAnalysis(proctoringSessionData?.session_id ?? '');
-          if (behavioraldata?.status === 'success') {
-            let newbehavioraldata = {
-              ...behavioraldata,
-            };
-            // Remove metadata fields that shouldn't be saved to database
-            delete newbehavioraldata?.alert_history;
-            delete newbehavioraldata?.document_verification;
-            delete newbehavioraldata?.status;
-            delete newbehavioraldata?.emotion_summary;
-            delete newbehavioraldata?.face_verification_summary;
-            delete newbehavioraldata?.session_id;
-            delete newbehavioraldata?.session_metadata;
-            delete newbehavioraldata?.token_consumption;
+          const timestamp = Date.now();
+          const formData = new FormData();
+          formData.append('video', file);
+          formData.append('fileName', `${jobData?.id}_${candidateId}_${timestamp}.mp4`);
 
-
-            setCurrentStep(2);
-            await updateCandidateDetails(file_url?.length > 0 ? file_url : null, damisession, {
-              ...newbehavioraldata,
-            });
-          } else {
-            console.warn(
-              '⚠️ Video analysis failed, saving interview data without analysis:',
-              behavioraldata
-            );
-            // Still save interview data even if analysis fails
-            setCurrentStep(2);
-            await updateCandidateDetails(file_url?.length > 0 ? file_url : null, damisession, {});
-          }
-        } catch (error) {
-          console.error('❌ Error during video analysis:', error);
-          // Still save interview data even if analysis fails
-          setCurrentStep(2);
-          await updateCandidateDetails(
-            res.data?.path
-              ? `${import.meta.env.VITE_AIINTERVIEW_API_VIDEO_ENDPOINT}/${res.data?.path}`
-              : null,
-            damisession,
-            {}
+          const res = await axios.post(
+            `${import.meta.env.VITE_AIINTERVIEW_API_KEY}/jobposts/upload-interview-video`,
+            formData,
+            { headers: { 'Content-Type': 'multipart/form-data' } }
           );
+
+          if (res.data?.path) {
+            file_url = `${import.meta.env.VITE_AIINTERVIEW_API_VIDEO_ENDPOINT}/${res.data.path}`;
+          }
+        } catch (uploadErr) {
+          console.error('❌ Video upload failed:', uploadErr);
         }
-      } else {
-        console.warn('⚠️ Video upload response missing path, saving interview data without video');
-        // Still save interview data even if video upload response is invalid
-        await updateCandidateDetails(null, damisession, {});
       }
-    } catch (error) {
-      console.error('❌ Error uploading video file:', error);
-      // Still save interview data even if video upload fails
-      console.log('💾 Saving interview data without video due to upload error...');
-      try {
-        await updateCandidateDetails(null, damisession, {});
-      } catch (saveError) {
-        console.error('❌ Error saving interview data:', saveError);
-        setCurrentStep(0);
-        setErrorText(
-          'Sorry, unable to upload the interview video and save interview data. Please try again.'
-        );
-        setIsLoading(false);
-      }
+
+      setCurrentStep(2);
+      await updateCandidateDetails(
+        file_url, // null if no video
+        damisession,
+        interviewoverview
+      );
+    } catch (err) {
+      console.error('❌ Upload flow error:', err);
+      await updateCandidateDetails(null, damisession, interviewoverview ?? {});
     }
   };
 
@@ -271,16 +233,15 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         ? Math.round((damisession.endTime.getTime() - damisession.startTime.getTime()) / 1000 / 60)
         : 0;
 
-      let averageScore = 0;
+      let overallScore = 0;
       let totalScore = 0;
       let averageResponseTime = 0;
       if (damisession?.questions) {
-        averageScore =
+        overallScore =
           damisession?.questions.length > 0
             ? Math.round(
-              damisession?.questions.reduce((sum: any, q: { score: any }) => sum + q.score, 0) /
-              damisession?.questions.length
-            )
+                damisession?.questions.reduce((sum: any, q: { score: any }) => sum + q.score, 0)
+              )
             : 0;
         totalScore =
           damisession?.questions.length > 0
@@ -290,12 +251,12 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         averageResponseTime =
           damisession?.questions.length > 0
             ? Math.round(
-              damisession?.questions.reduce((sum, q) => sum + q.responseTime, 0) /
-              damisession?.questions.length
-            )
+                damisession?.questions.reduce((sum, q) => sum + q.responseTime, 0) /
+                  damisession?.questions.length
+              )
             : 0;
       }
-      const gradeInfo = getGrade(averageScore);
+      const gradeInfo = getGrade(overallScore);
       let newQuestions: any[] = [];
       shuffledQuestions.map((ques: any) => {
         let question = { ...ques };
@@ -327,6 +288,85 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         confidence:
           interviewoverview?.performanceBreakdown?.confidenceLevel?.overallAveragePercentage ?? 0,
       };
+
+      // Calculate category-wise percentage based on question types
+      const calculateCategoryPercentage = () => {
+        if (!damisession?.questions || damisession.questions.length === 0) {
+          return {
+            totalScore: 0,
+            overallScore: 0,
+            overallPercentage: 0,
+            categoryWisePercentage: {},
+          };
+        }
+
+        // Group questions by type/category
+        const categoryScores: Record<
+          string,
+          { totalScore: number; maxScore: number; count: number }
+        > = {};
+
+        // Map question types to display names
+        const categoryDisplayNames: Record<string, string> = {
+          behavioral: 'Behavioral',
+          communication: 'Communication',
+          reasoning: 'Reasoning Ability',
+          arithmetic: 'Arithmetic',
+          subjective: 'Subjective',
+        };
+
+        // Initialize category tracking
+        shuffledQuestions.forEach((question) => {
+          const questionType = question.type?.toLowerCase() || 'other';
+          const displayName = categoryDisplayNames[questionType] || questionType;
+
+          if (!categoryScores[displayName]) {
+            categoryScores[displayName] = { totalScore: 0, maxScore: 0, count: 0 };
+          }
+        });
+
+        // Calculate scores for each answered question
+        damisession.questions.forEach((response) => {
+          // Find the original question to get its type
+          const originalQuestion = shuffledQuestions.find((q) => q.question === response.question);
+          if (originalQuestion) {
+            const questionType = originalQuestion.type?.toLowerCase() || 'other';
+            const displayName = categoryDisplayNames[questionType] || questionType;
+
+            if (categoryScores[displayName]) {
+              categoryScores[displayName].totalScore += response.score || 0;
+              categoryScores[displayName].maxScore += 10; // Assuming max score per question is 10
+              categoryScores[displayName].count += 1;
+            }
+          }
+        });
+
+        // Calculate percentages for each category
+        const categoryWisePercentage: Record<string, number> = {};
+        Object.entries(categoryScores).forEach(([category, scores]) => {
+          if (scores.maxScore > 0) {
+            categoryWisePercentage[category] = Math.round(
+              (scores.totalScore / scores.maxScore) * 100
+            );
+          } else {
+            categoryWisePercentage[category] = 0;
+          }
+        });
+
+        const overallPercentage =
+          totalScore > 0
+            ? Math.round((overallScore / (damisession.questions.length * 10)) * 100)
+            : 0;
+
+        return {
+          totalScore: totalScore,
+          overallScore: overallScore,
+          overallPercentage: overallPercentage,
+          categoryWisePercentage: categoryWisePercentage,
+        };
+      };
+
+      const categoryPercentage = calculateCategoryPercentage();
       // setIsModalLoading(true);
       const response = await axios.post(
         `${import.meta.env.VITE_AIINTERVIEW_API_KEY}/jobposts/update-candidate-byid`,
@@ -334,18 +374,27 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
           candidateId: candidateId,
           data: {
             interviewVideoLink: videolink ?? '',
-            status: 'completed',
+            status: 'under_review',
             interviewDate: new Date(),
-            hasRecording: videolink ? true : false,
+            hasRecording: Boolean(videolink),
             photoUrl: photoUrl ?? '',
             questions: newQuestions,
             attemptedQuestions: damisession?.questions?.length ?? 0,
-            overallScore: averageScore,
+            overallScore: overallScore,
             totalScore: totalScore,
             grade: gradeInfo?.grade,
             duration: totalTime,
             scores: damiscores,
             averageResponseTime: averageResponseTime,
+            categoryPercentage: {
+              ...categoryPercentage,
+              categoryWisePercentage: {
+                ...categoryPercentage.categoryWisePercentage,
+                ...damiscores,
+              },
+            },
+            proctoring: alerts?.length > 0 ? 'Yes' : 'No',
+            proctoringAlerts: alerts,
             ...interviewoverview,
           },
         },
@@ -758,124 +807,94 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
   // End interview - saves all data collected so far (even if interview ended early)
   const endInterview = useCallback(
     async (updatedSession: InterviewSession) => {
-      console.log('🏁 Ending assessment (early exit or completion)');
+      console.log('🏁 Ending assessment');
+
       interviewEndedRef.current = true;
       setInterviewStarted(false);
       setIsGeneratingAudio(false);
-      setSession((prev) => (prev ? { ...prev, status: 'completed', endTime: new Date() } : prev));
-      stopListening();
-      stopAudio();
       setIsLoading(true);
 
-      // IMPORTANT: Stop recording FIRST to capture the blob BEFORE stopping camera
-      // If video recording was enabled, stop recorder and upload video;
-      // otherwise, just update candidate details using audio-only data.
-      let videoBlobData: { blob: Blob } | null = null;
+      stopListening();
+      stopAudio();
+
+      const finalSession: InterviewSession = {
+        ...(updatedSession || session),
+        status: 'completed',
+        endTime: new Date(),
+      };
+
+      if (!finalSession) {
+        setIsLoading(false);
+        return;
+      }
+
+      setSession(finalSession);
+
+      let videoBlob: Blob | null = null;
+      let cleanBehavioralData: any = {};
+
+      /* ---------- STOP RECORDING ---------- */
       if (jobData?.enableVideoRecording) {
         try {
-          console.log('📹 Stopping video recording...');
-          // Wait for recording to stop and blob to be created
-          videoBlobData = await Promise.race([
+          const result = await Promise.race([
             stopRecording(),
-            new Promise<null>((resolve) =>
-              setTimeout(() => {
-                console.warn('⏱️ Recording stop timeout after 10 seconds');
-                resolve(null);
-              }, 10000)
-            ),
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), 10000)),
           ]);
 
-          if (videoBlobData?.blob && videoBlobData.blob.size > 0) {
-            console.log('✅ Video recording stopped, blob captured:', {
-              size: videoBlobData.blob.size,
-              type: videoBlobData.blob.type,
-            });
-          } else {
-            console.warn('⚠️ Video recording stopped but no blob captured or blob is empty');
-            videoBlobData = null;
+          if (result?.blob && result.blob.size > 0) {
+            videoBlob = result.blob;
           }
-        } catch (recordingError) {
-          console.error('❌ Error stopping video recording:', recordingError);
-          videoBlobData = null;
-          // Continue without video - save interview data anyway
+        } catch (err) {
+          console.error('❌ Recording stop failed:', err);
         }
       }
 
-      // Stop camera AFTER recording is stopped and blob is captured (cleanup)
+      /* ---------- STOP CAMERA ---------- */
       try {
-        if (jobData?.enableVideoRecording) {
-          stopCamera();
-        }
-      } catch (cameraStopError) {
-        console.warn('⚠️ Error stopping camera:', cameraStopError);
+        if (jobData?.enableVideoRecording) stopCamera();
+      } catch (err) {
+        console.warn('⚠️ Failed to stop camera:', err);
       }
 
-      // Use current session or passed session
-      const currentSession = updatedSession || session;
-      if (currentSession) {
-        let damisession: InterviewSession = {
-          ...currentSession,
-          endTime: new Date(),
-          status: 'completed',
-        };
+      /* ---------- BEHAVIOURAL ANALYSIS (ALWAYS) ---------- */
+      try {
+        const behavioraldata = await getBehaviouralAnalysis(
+          proctoringSessionData?.session_id ?? ''
+        );
 
-        // Update session status immediately so UI shows completion
-        setSession({
-          ...damisession,
-        });
+        if (behavioraldata?.status === 'success') {
+          cleanBehavioralData = { ...behavioraldata };
 
-        try {
-          // Save interview data even if user ended early - save whatever questions were answered
-          // This ensures partial interview data is preserved with audio/video recordings
-          if (damisession?.questions && damisession.questions.length > 0) {
-            console.log(
-              `💾 Saving interview data (${damisession.questions.length} question(s) answered)...`
-            );
-
-            if (jobData?.enableVideoRecording) {
-              // Video recording mode
-              if (videoBlobData?.blob && videoBlobData.blob.size > 0) {
-                console.log('📤 Uploading video recording with interview data...');
-                // Upload video and save interview details with video URL - await to ensure completion
-                await uploadinterviewvideo(videoBlobData.blob, damisession, proctoringSessionData);
-              } else {
-                console.warn('⚠️ No video blob captured, saving interview data without video');
-                // No video was captured; still persist interview details without video link
-                // This handles cases where recording failed but interview was completed
-                await updateCandidateDetails(null, damisession, {});
-              }
-            } else {
-              // Audio-only mode – no video upload/analysis
-              console.log('🎤 Audio-only mode: Saving interview data...');
-              await updateCandidateDetails(null, damisession, {});
-            }
-          } else {
-            // No questions answered - still save empty interview record to mark as attempted
-            console.log('⚠️ No questions answered, saving empty interview record');
-            if (jobData?.enableVideoRecording) {
-              if (videoBlobData?.blob && videoBlobData.blob.size > 0) {
-                // Save video even if no questions answered
-                await uploadinterviewvideo(videoBlobData.blob, damisession, proctoringSessionData);
-              } else {
-                await updateCandidateDetails(null, damisession, {});
-              }
-            } else {
-              await updateCandidateDetails(null, damisession, {});
-            }
-          }
-        } catch (error) {
-          console.error('❌ Error saving interview data:', error);
-          setErrorText('Failed to save interview data. Please contact support.');
-        } finally {
-          // Always set loading to false after saving completes (or fails)
-          setIsLoading(false);
+          delete cleanBehavioralData.alert_history;
+          delete cleanBehavioralData.document_verification;
+          delete cleanBehavioralData.status;
+          delete cleanBehavioralData.emotion_summary;
+          delete cleanBehavioralData.face_verification_summary;
+          delete cleanBehavioralData.session_id;
+          delete cleanBehavioralData.session_metadata;
+          delete cleanBehavioralData.token_consumption;
+        } else {
+          console.warn('⚠️ Behavioural analysis failed');
         }
-      } else {
-        console.error('❌ No session data available to save');
+      } catch (err) {
+        console.error('❌ Behavioural analysis error:', err);
+      }
+
+      /* ---------- SAVE FLOW ---------- */
+      try {
+        await uploadinterviewvideo(
+          videoBlob, // can be null
+          finalSession,
+          cleanBehavioralData // {} if analysis failed
+        );
+      } catch (err) {
+        console.error('❌ Save failed:', err);
+        setErrorText('Failed to save interview data.');
+      } finally {
         setIsLoading(false);
       }
     },
-    [session, stopListening, stopCamera, stopRecording, stopAudio, jobData, updateCandidateDetails]
+    [session, jobData, stopListening, stopAudio, stopRecording, stopCamera, uploadinterviewvideo]
   );
 
   // Update ref when endInterview changes

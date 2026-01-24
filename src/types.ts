@@ -40,7 +40,7 @@ export interface Candidate {
   appliedDate: any;
   interviewDate: any;
   duration: number;
-  status: 'completed' | 'inprogress' | 'scheduled';
+  status: 'completed' | 'inprogress' | 'pending' | 'under_review';
   overallScore: number;
   scores: {
     communication: number;

@@ -11,16 +11,11 @@ interface InterviewSummaryProps {
 }
 
 export const getGrade = (score: number) => {
-  if (score >= 9)
-    return { grade: 'A+', color: 'text-green-600', bg: 'bg-green-50' };
-  if (score >= 8)
-    return { grade: 'A', color: 'text-green-600', bg: 'bg-green-50' };
-  if (score >= 7)
-    return { grade: 'B+', color: 'text-blue-600', bg: 'bg-blue-50' };
-  if (score >= 6)
-    return { grade: 'B', color: 'text-blue-600', bg: 'bg-blue-50' };
-  if (score >= 5)
-    return { grade: 'C', color: 'text-yellow-600', bg: 'bg-yellow-50' };
+  if (score >= 9) return { grade: 'A+', color: 'text-green-600', bg: 'bg-green-50' };
+  if (score >= 8) return { grade: 'A', color: 'text-green-600', bg: 'bg-green-50' };
+  if (score >= 7) return { grade: 'B+', color: 'text-blue-600', bg: 'bg-blue-50' };
+  if (score >= 6) return { grade: 'B', color: 'text-blue-600', bg: 'bg-blue-50' };
+  if (score >= 5) return { grade: 'C', color: 'text-yellow-600', bg: 'bg-yellow-50' };
   return { grade: 'D', color: 'text-red-600', bg: 'bg-red-50' };
 };
 
@@ -116,9 +111,7 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                         ?.join('')}
                     </span>
                   </div>
-                  <h2 className='text-xl font-bold text-gray-900 mb-1'>
-                    {candidateData?.name}
-                  </h2>
+                  <h2 className='text-xl font-bold text-gray-900 mb-1'>{candidateData?.name}</h2>
                   <p className='text-gray-600 mb-2'>{candidateData?.email}</p>
                   <p className='text-gray-600'>{candidateData?.mobile}</p>
                 </div>
@@ -130,23 +123,19 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                     <>
                       <div className='text-center'>
                         <div
-                          className={`text-4xl font-bold mb-2 ${getScoreColor(
-                            candidateData?.overallScore ?? 0
-                          ).split(' ')[0]
-                            }`}
+                          className={`text-4xl font-bold mb-2 ${
+                            getScoreColor(candidateData?.overallScore ?? 0).split(' ')[0]
+                          }`}
                         >
                           {candidateData?.overallScore}%
                         </div>
-                        <div className='text-sm text-gray-600'>
-                          Overall Score
-                        </div>
+                        <div className='text-sm text-gray-600'>Overall Score</div>
                         <div
                           className={`inline-block px-3 py-1 rounded-full text-sm font-medium mt-2 ${getScoreColor(
                             candidateData?.overallScore ?? 0
                           )}`}
                         >
-                          Grade:{' '}
-                          {getScoreGrade(candidateData?.overallScore ?? 0)}
+                          Grade: {getScoreGrade(candidateData?.overallScore ?? 0)}
                         </div>
                       </div>
 
@@ -154,9 +143,7 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                         <div className='text-4xl font-bold text-gray-900 mb-2'>
                           {candidateData?.duration}m
                         </div>
-                        <div className='text-sm text-gray-600'>
-                          Assessment Duration
-                        </div>
+                        <div className='text-sm text-gray-600'>Assessment Duration</div>
                         {/* <div className="text-sm text-green-600 mt-2">
                       {MockcandidateData.comparisonData.percentileRank}th
                       percentile
@@ -167,9 +154,7 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                         <div className='text-4xl font-bold text-gray-900 mb-2'>
                           {candidateData?.attemptedQuestions}
                         </div>
-                        <div className='text-sm text-gray-600'>
-                          Questions Answered
-                        </div>
+                        <div className='text-sm text-gray-600'>Questions Answered</div>
                       </div>
                     </>
                   )}
@@ -190,7 +175,7 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                           )}
                         </span>
                       </div>
-                      {candidateData?.status === "completed" && (
+                      {(candidateData?.status === "completed" || candidateData?.status === "under_review") && (
                         <div className="flex items-center space-x-2">
                           <Clock className="h-4 w-4" />
                           <span>
@@ -243,10 +228,11 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                         <button
                           key={tab.id}
                           onClick={() => setActiveTab(tab.id)}
-                          className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm ${activeTab === tab.id
+                          className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm ${
+                            activeTab === tab.id
                               ? 'border-blue-500 text-blue-600'
                               : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            }`}
+                          }`}
                         >
                           <tab.icon className='h-4 w-4' />
                           <span>{tab.label}</span>
@@ -270,33 +256,29 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                             {
                               label: 'Communication Skills',
                               score:
-                                candidateData?.performanceBreakdown
-                                  ?.communicationSkills
+                                candidateData?.performanceBreakdown?.communicationSkills
                                   ?.overallAveragePercentage ?? 0,
                               icon: '💬',
                             },
                             {
                               label: 'Technical Knowledge',
                               score:
-                                candidateData?.performanceBreakdown
-                                  ?.technicalKnowledge
+                                candidateData?.performanceBreakdown?.technicalKnowledge
                                   ?.overallAveragePercentage ?? 0,
                               icon: '🔧',
                             },
                             {
                               label: 'Body Language',
                               score:
-                                candidateData?.performanceBreakdown
-                                  ?.body_language?.overallAveragePercentage ??
-                                0,
+                                candidateData?.performanceBreakdown?.body_language
+                                  ?.overallAveragePercentage ?? 0,
                               icon: '👤',
                             },
                             {
                               label: 'Confidence Level',
                               score:
-                                candidateData?.performanceBreakdown
-                                  ?.confidenceLevel?.overallAveragePercentage ??
-                                0,
+                                candidateData?.performanceBreakdown?.confidenceLevel
+                                  ?.overallAveragePercentage ?? 0,
                               icon: '💪',
                             },
                             {
@@ -311,14 +293,10 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                               <div className='flex items-center justify-between mb-2'>
                                 <div className='flex items-center space-x-3'>
                                   <span className='text-2xl'>{item.icon}</span>
-                                  <span className='font-medium text-gray-900'>
-                                    {item.label}
-                                  </span>
+                                  <span className='font-medium text-gray-900'>{item.label}</span>
                                 </div>
                                 <div className='flex items-center space-x-2'>
-                                  <span className='font-bold text-gray-900'>
-                                    {item.score}%
-                                  </span>
+                                  <span className='font-bold text-gray-900'>{item.score}%</span>
                                   <span
                                     className={`px-2 py-1 rounded text-xs font-medium ${getScoreColor(
                                       item.score
@@ -330,14 +308,15 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                               </div>
                               <div className='w-full bg-gray-200 rounded-full h-3'>
                                 <div
-                                  className={`h-3 rounded-full transition-all duration-1000 ${item.score >= 90
+                                  className={`h-3 rounded-full transition-all duration-1000 ${
+                                    item.score >= 90
                                       ? 'bg-green-500'
                                       : item.score >= 80
                                         ? 'bg-blue-500'
                                         : item.score >= 70
                                           ? 'bg-yellow-500'
                                           : 'bg-red-500'
-                                    }`}
+                                  }`}
                                   style={{ width: `${item.score}%` }}
                                 ></div>
                               </div>
@@ -370,9 +349,7 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                                     className='text-sm text-gray-700 flex items-start space-x-2'
                                   >
                                     <div className='w-1.5 h-1.5 bg-green-500 rounded-full mt-2 flex-shrink-0'></div>
-                                    <span className='text-left'>
-                                      {strength}
-                                    </span>
+                                    <span className='text-left'>{strength}</span>
                                   </li>
                                 )
                               )}
@@ -392,9 +369,7 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                                     className='text-sm text-gray-700 flex items-start space-x-2'
                                   >
                                     <div className='w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0'></div>
-                                    <span className='text-left'>
-                                      {improvement}
-                                    </span>
+                                    <span className='text-left'>{improvement}</span>
                                   </li>
                                 )
                               )}
@@ -407,39 +382,24 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                     {/* Quick Stats */}
                     <div className='space-y-6'>
                       <div className='bg-white rounded-xl shadow-sm p-6'>
-                        <h3 className='font-semibold text-gray-900 mb-4'>
-                          Quick Stats
-                        </h3>
+                        <h3 className='font-semibold text-gray-900 mb-4'>Quick Stats</h3>
                         <div className='space-y-4'>
                           {candidateData?.quickStats &&
-                            Object.keys(candidateData.quickStats).length > 0 ? (
-                            Object.entries(candidateData.quickStats).map(
-                              ([skill, data]: any) => (
-                                <div
-                                  key={skill}
-                                  className='flex justify-between items-center'
-                                >
-                                  <span className='text-sm text-gray-600'>
-                                    {camelToLabel(skill)}
-                                  </span>
-                                  <span className='font-semibold text-green-600'>
-                                    {data}
-                                  </span>
-                                </div>
-                              )
-                            )
+                          Object.keys(candidateData.quickStats).length > 0 ? (
+                            Object.entries(candidateData.quickStats).map(([skill, data]: any) => (
+                              <div key={skill} className='flex justify-between items-center'>
+                                <span className='text-sm text-gray-600'>{camelToLabel(skill)}</span>
+                                <span className='font-semibold text-green-600'>{data}</span>
+                              </div>
+                            ))
                           ) : (
-                            <p className='text-sm text-gray-500'>
-                              No quick stats available
-                            </p>
+                            <p className='text-sm text-gray-500'>No quick stats available</p>
                           )}
                         </div>
                       </div>
 
                       <div className='bg-white rounded-xl shadow-sm p-6'>
-                        <h3 className='font-semibold text-gray-900 mb-4'>
-                          Recommendation
-                        </h3>
+                        <h3 className='font-semibold text-gray-900 mb-4'>Recommendation</h3>
                         <div className='text-center'>
                           <div className='bg-green-100 p-4 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center'>
                             <Award className='h-8 w-8 text-green-600' />
@@ -460,10 +420,7 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                   <div className='space-y-6'>
                     {session?.questions &&
                       session?.questions.map((response, index) => (
-                        <div
-                          key={index}
-                          className='bg-white rounded-xl shadow-sm p-6'
-                        >
+                        <div key={index} className='bg-white rounded-xl shadow-sm p-6'>
                           <div className='flex items-start justify-between mb-4'>
                             <div className='flex-1'>
                               <div className='flex items-center space-x-3 mb-2'>
@@ -488,21 +445,13 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                           </div>
 
                           <div className='bg-gray-50 p-4 rounded-lg mb-4 text-left'>
-                            <h4 className='font-medium text-gray-900 mb-2'>
-                              Candidate Response:
-                            </h4>
-                            <p className='text-gray-700 leading-relaxed'>
-                              {response?.userAnswer}
-                            </p>
+                            <h4 className='font-medium text-gray-900 mb-2'>Candidate Response:</h4>
+                            <p className='text-gray-700 leading-relaxed'>{response?.userAnswer}</p>
                           </div>
 
                           <div className='bg-blue-50 p-4 rounded-lg text-left'>
-                            <h4 className='font-medium text-blue-900 mb-2'>
-                              AI Analysis:
-                            </h4>
-                            <p className='text-blue-800 text-sm'>
-                              {response.aiEvaluation}
-                            </p>
+                            <h4 className='font-medium text-blue-900 mb-2'>AI Analysis:</h4>
+                            <p className='text-blue-800 text-sm'>{response.aiEvaluation}</p>
                           </div>
                         </div>
                       ))}
@@ -512,60 +461,51 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                 {activeTab === 'skills' && (
                   <div className=''>
                     <div className='bg-white rounded-xl shadow-sm p-6'>
-                      <h2 className='text-xl font-bold text-gray-900 mb-6'>
-                        Skill Assessment
-                      </h2>
+                      <h2 className='text-xl font-bold text-gray-900 mb-6'>Skill Assessment</h2>
                       <div className='space-y-6'>
-                        {Object.entries(
-                          candidateData?.performanceBreakdown
-                        ).map(([skill, data]: any) => {
-                          if (
-                            [
-                              'culturalFit',
-                              'behavior',
-                              'body_language',
-                            ].includes(skill)
-                          )
-                            return;
-                          else
-                            return (
-                              <div key={skill}>
-                                <div className='flex items-center justify-between mb-2'>
-                                  <div className='flex items-center space-x-2'>
-                                    <span className='font-medium text-gray-900 capitalize'>
-                                      {camelToLabel(skill)}
+                        {Object.entries(candidateData?.performanceBreakdown).map(
+                          ([skill, data]: any) => {
+                            if (['culturalFit', 'behavior', 'body_language'].includes(skill))
+                              return;
+                            else
+                              return (
+                                <div key={skill}>
+                                  <div className='flex items-center justify-between mb-2'>
+                                    <div className='flex items-center space-x-2'>
+                                      <span className='font-medium text-gray-900 capitalize'>
+                                        {camelToLabel(skill)}
+                                      </span>
+                                      {getTrendIcon(skill)}
+                                    </div>
+                                    <span
+                                      className={`font-bold ${getScoreColor(
+                                        data.overallAveragePercentage
+                                      )}`}
+                                    >
+                                      {data.overallAveragePercentage ?? 0}%
                                     </span>
-                                    {getTrendIcon(skill)}
                                   </div>
-                                  <span
-                                    className={`font-bold ${getScoreColor(
-                                      data.overallAveragePercentage
-                                    )}`}
-                                  >
-                                    {data.overallAveragePercentage ?? 0}%
-                                  </span>
-                                </div>
-                                <div className='w-full bg-gray-200 rounded-full h-2 mb-2'>
-                                  <div
-                                    className={`h-2 rounded-full ${data.overallAveragePercentage >= 90
-                                        ? 'bg-green-500'
-                                        : data.overallAveragePercentage >= 80
-                                          ? 'bg-blue-500'
-                                          : data.overallAveragePercentage >= 70
-                                            ? 'bg-yellow-500'
-                                            : 'bg-red-500'
+                                  <div className='w-full bg-gray-200 rounded-full h-2 mb-2'>
+                                    <div
+                                      className={`h-2 rounded-full ${
+                                        data.overallAveragePercentage >= 90
+                                          ? 'bg-green-500'
+                                          : data.overallAveragePercentage >= 80
+                                            ? 'bg-blue-500'
+                                            : data.overallAveragePercentage >= 70
+                                              ? 'bg-yellow-500'
+                                              : 'bg-red-500'
                                       }`}
-                                    style={{
-                                      width: `${data.overallAveragePercentage}%`,
-                                    }}
-                                  ></div>
+                                      style={{
+                                        width: `${data.overallAveragePercentage}%`,
+                                      }}
+                                    ></div>
+                                  </div>
+                                  <p className='text-sm text-gray-600 text-left'>{data.summary}</p>
                                 </div>
-                                <p className='text-sm text-gray-600 text-left'>
-                                  {data.summary}
-                                </p>
-                              </div>
-                            );
-                        })}
+                              );
+                          }
+                        )}
                       </div>
                     </div>
                   </div>
@@ -574,9 +514,7 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                 {activeTab === 'behavioral' && (
                   <div className='grid lg:grid-cols-2 gap-8'>
                     <div className='bg-white rounded-xl shadow-sm p-6'>
-                      <h2 className='text-xl font-bold text-gray-900 mb-6'>
-                        Behavioral Analysis
-                      </h2>
+                      <h2 className='text-xl font-bold text-gray-900 mb-6'>Behavioral Analysis</h2>
                       <div className='space-y-6'>
                         {renderAnalysis(
                           'Eye Contact',
@@ -592,8 +530,7 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                         )}
                         {renderAnalysis(
                           'Face Expressions',
-                          candidateData?.behavioral_analysis
-                            ?.facial_expressions ?? 0
+                          candidateData?.behavioral_analysis?.facial_expressions ?? 0
                         )}
                         {renderAnalysis(
                           'Voice Tone',
@@ -616,9 +553,7 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                       </h2>
                       <div className='space-y-4'>
                         <div className='bg-green-50 p-4 rounded-lg'>
-                          <h3 className='font-medium text-green-800 mb-2'>
-                            Positive Indicators
-                          </h3>
+                          <h3 className='font-medium text-green-800 mb-2'>Positive Indicators</h3>
                           <ul className='text-sm text-green-700 space-y-1 text-left'>
                             {candidateData?.video_analysis_insights?.positive_indicators
                               ?.slice(1)
@@ -629,9 +564,7 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                         </div>
 
                         <div className='bg-blue-50 p-4 rounded-lg'>
-                          <h3 className='font-medium text-blue-800 mb-2'>
-                            Areas for Improvement
-                          </h3>
+                          <h3 className='font-medium text-blue-800 mb-2'>Areas for Improvement</h3>
                           <ul className='text-sm text-blue-700 space-y-1 text-left'>
                             {candidateData?.video_analysis_insights?.areas_for_improvement
                               ?.slice(1)
@@ -642,9 +575,7 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                         </div>
 
                         <div className='bg-yellow-50 p-4 rounded-lg'>
-                          <h3 className='font-medium text-yellow-800 mb-2'>
-                            Recommendations
-                          </h3>
+                          <h3 className='font-medium text-yellow-800 mb-2'>Recommendations</h3>
                           <ul className='text-sm text-yellow-700 space-y-1 text-left'>
                             {candidateData?.video_analysis_insights?.recommendations?.map(
                               (item, i) => (
@@ -679,20 +610,19 @@ const renderAnalysis = (title: string, score: number) => {
     <div>
       <div className='flex items-center justify-between mb-2'>
         <span className='font-medium text-gray-900 capitalize'>{title}</span>
-        <span className={`font-bold ${getScoreColor(score).split(' ')[0]}`}>
-          {score}%
-        </span>
+        <span className={`font-bold ${getScoreColor(score).split(' ')[0]}`}>{score}%</span>
       </div>
       <div className='w-full bg-gray-200 rounded-full h-2'>
         <div
-          className={`h-2 rounded-full ${score >= 90
+          className={`h-2 rounded-full ${
+            score >= 90
               ? 'bg-green-500'
               : score >= 80
                 ? 'bg-blue-500'
                 : score >= 70
                   ? 'bg-yellow-500'
                   : 'bg-red-500'
-            }`}
+          }`}
           style={{
             width: `${score}%`,
           }}

@@ -91,7 +91,7 @@ const IdentityVerification: React.FC<IdentityVerificationProps> = ({
   useEffect(() => {
     if (videoRef.current && stream && step === 2) {
       videoRef.current.srcObject = stream;
-      videoRef.current.play().catch(() => { });
+      videoRef.current.play().catch(() => {});
     }
   }, [stream, step]);
 
@@ -136,7 +136,6 @@ const IdentityVerification: React.FC<IdentityVerificationProps> = ({
 
       setVerificationResult(res.data);
 
-
       if (res.data.verified) {
         // Add live photo to s3
         // upload live photo
@@ -156,12 +155,14 @@ const IdentityVerification: React.FC<IdentityVerificationProps> = ({
           {
             candidateId,
             data: {
-              idType,
-              idNumber,
-              verified: res.data.verified,
-              similarity: res.data.similarity,
-              documentConfidence: res.data.document_face_confidence,
-              liveConfidence: res.data.live_face_confidence,
+              governmentProof: [
+                {
+                  value: idNumber,
+                  verified: res.data.verified,
+                  type: idType,
+                  idProofType: 'Govt ID 1',
+                },
+              ],
               photoUrl: damiphotourl,
             },
           }
@@ -364,10 +365,11 @@ const IdentityVerification: React.FC<IdentityVerificationProps> = ({
 
           {!loading && verificationResult && (
             <div
-              className={`p-6 rounded-2xl border-2 text-left ${verificationResult.verified
-                ? 'bg-emerald-50/90 border-emerald-200/80 text-emerald-800'
-                : 'bg-red-50/90 border-red-200/80 text-red-800'
-                }`}
+              className={`p-6 rounded-2xl border-2 text-left ${
+                verificationResult.verified
+                  ? 'bg-emerald-50/90 border-emerald-200/80 text-emerald-800'
+                  : 'bg-red-50/90 border-red-200/80 text-red-800'
+              }`}
             >
               <div className='flex items-start gap-4'>
                 {verificationResult.verified ? (

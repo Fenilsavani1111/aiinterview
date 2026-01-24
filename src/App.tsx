@@ -1251,8 +1251,7 @@ const App: React.FC = () => {
   }, []);
 
   const handleModalSubmit = async (
-    firstName: string,
-    lastName: string,
+    name: string,
     email: string,
     resumeUrl: string,
     mobile: string,
@@ -1265,7 +1264,9 @@ const App: React.FC = () => {
       yearOfPassing?: string;
     }>,
     location: string,
-    skills: string[]
+    skills: string[],
+    region: string,
+    residenceLocation: string
   ) => {
     try {
       setIsModalLoading(true);
@@ -1274,9 +1275,7 @@ const App: React.FC = () => {
         {
           token: token,
           user: email,
-          firstName: firstName,
-          lastName: lastName,
-          name: `${firstName} ${lastName}`, // Keep name for backward compatibility
+          name: name,
           email: email,
           resumeUrl: resumeUrl,
           mobile: mobile,
@@ -1285,6 +1284,8 @@ const App: React.FC = () => {
           educations: educations,
           location: location,
           skills: skills,
+          region: region,
+          residenceLocation: residenceLocation,
         },
         {
           headers: {

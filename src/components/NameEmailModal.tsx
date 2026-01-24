@@ -1,15 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import {
-  Brain,
-  Camera,
-  Plus,
-  Trash2,
-  Upload,
-  AlertCircle,
-  XCircle,
-} from 'lucide-react';
+import { Brain, Camera, Plus, Trash2, Upload, AlertCircle, XCircle } from 'lucide-react';
 import axios from 'axios';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min?url';
@@ -22,8 +14,7 @@ interface Props {
   isLoading: boolean;
   modalError: string | null;
   onSubmitPopup: (
-    firstName: string,
-    lastName: string,
+    name: string,
     email: string,
     resumeUrl: string,
     mobile: string,
@@ -36,12 +27,13 @@ interface Props {
       yearOfPassing?: string;
     }>,
     location: string,
-    skills: string[]
+    skills: string[],
+    region: string,
+    residenceLocation: string
   ) => void;
   jobData: JobPost | null;
   token?: string;
 }
-
 
 const NameEmailModal: React.FC<Props> = ({
   isOpen,
@@ -58,9 +50,7 @@ const NameEmailModal: React.FC<Props> = ({
 
   // Email verification states
   const [isVerifyingEmail, setIsVerifyingEmail] = useState(false);
-  const [emailVerificationError, setEmailVerificationError] = useState<
-    string | null
-  >(null);
+  const [emailVerificationError, setEmailVerificationError] = useState<string | null>(null);
   const [isEmailVerified, setIsEmailVerified] = useState(false);
   const [showAccessDenied, setShowAccessDenied] = useState(false);
   const [actualToken, setActualToken] = useState<string>('');
@@ -109,6 +99,8 @@ const NameEmailModal: React.FC<Props> = ({
       },
       location: '',
       skills: [''],
+      region: '',
+      residenceLocation: '',
     },
     validationSchema: Yup.object({
       firstName: Yup.string()
@@ -128,9 +120,7 @@ const NameEmailModal: React.FC<Props> = ({
         .min(10, 'Phone number must be at least 10 digits')
         .required('Please enter your phone number'),
       dob: Yup.string().required('Please enter your date of birth (DD/MM/YYYY)'),
-      highestQualification: Yup.string().required(
-        'Please select your highest qualification'
-      ),
+      highestQualification: Yup.string().required('Please select your highest qualification'),
       degreeEducation: Yup.object({
         stream: Yup.string(),
         percentage: Yup.string().matches(
@@ -168,6 +158,12 @@ const NameEmailModal: React.FC<Props> = ({
         .min(2, 'Location must be at least 2 characters')
         .required('Please enter your current location'),
       skills: Yup.array().of(Yup.string().min(1, 'Skill cannot be empty')),
+      region: Yup.string()
+        .min(2, 'Region must be at least 2 characters')
+        .required('Please enter your region'),
+      residenceLocation: Yup.string()
+        .min(2, 'Residence location must be at least 2 characters')
+        .required('Please enter your residence location'),
     }),
     onSubmit: async (formValues) => {
       if (!actualToken) {
@@ -194,15 +190,9 @@ const NameEmailModal: React.FC<Props> = ({
 
       // Always include 10th if highest qualification is at least 10th
       if (
-        [
-          '10th',
-          '12th',
-          'diploma',
-          'bachelor',
-          'master',
-          'phd',
-          'other',
-        ].includes(formValues.highestQualification)
+        ['10th', '12th', 'diploma', 'bachelor', 'master', 'phd', 'other'].includes(
+          formValues.highestQualification
+        )
       ) {
         if (
           formValues.tenthEducation.stream ||
@@ -236,9 +226,7 @@ const NameEmailModal: React.FC<Props> = ({
 
       // Include degree if highest qualification is diploma, bachelor, master, phd, or other
       if (
-        ['diploma', 'bachelor', 'master', 'phd', 'other'].includes(
-          formValues.highestQualification
-        )
+        ['diploma', 'bachelor', 'master', 'phd', 'other'].includes(formValues.highestQualification)
       ) {
         if (
           formValues.degreeEducation.stream ||
@@ -254,8 +242,7 @@ const NameEmailModal: React.FC<Props> = ({
 
       // If authorized, proceed with submission
       onSubmitPopup(
-        formValues.firstName,
-        formValues.lastName,
+        formValues.firstName + ' ' + formValues.lastName,
         formValues.email,
         formValues.resumeUrl,
         formValues.mobile,
@@ -263,7 +250,9 @@ const NameEmailModal: React.FC<Props> = ({
         formValues.highestQualification,
         educations,
         formValues.location,
-        formValues.skills
+        formValues.skills,
+        formValues.region,
+        formValues.residenceLocation
       );
     },
   });
@@ -289,8 +278,7 @@ const NameEmailModal: React.FC<Props> = ({
       setEmailVerificationError(null);
 
       const response = await axios.post(
-        `${import.meta.env.VITE_AIINTERVIEW_API_KEY
-        }/jobposts/verify-email-for-interview`,
+        `${import.meta.env.VITE_AIINTERVIEW_API_KEY}/jobposts/verify-email-for-interview`,
         {
           token: actualToken,
           email: email.toLowerCase().trim(),
@@ -304,9 +292,7 @@ const NameEmailModal: React.FC<Props> = ({
         return true;
       } else {
         setIsEmailVerified(false);
-        setEmailVerificationError(
-          response.data.error || 'Email verification failed'
-        );
+        setEmailVerificationError(response.data.error || 'Email verification failed');
         setShowAccessDenied(true);
         return false;
       }
@@ -352,10 +338,7 @@ const NameEmailModal: React.FC<Props> = ({
       if (jobData) {
         const formData = new FormData();
         formData.append('file', file);
-        formData.append(
-          'fileName',
-          `${values.firstName || values.lastName || 'resume'}`
-        );
+        formData.append('fileName', `${values.firstName || values.lastName || 'resume'}`);
 
         const res = await axios.post(
           `${import.meta.env.VITE_AIINTERVIEW_API_KEY}/jobposts/upload-resume`,
@@ -371,10 +354,7 @@ const NameEmailModal: React.FC<Props> = ({
             setCvMatch(60);
             setFieldError('resumeUrl', undefined);
           } else {
-            setFieldError(
-              'resumeUrl',
-              'Failed to upload resume. Please try again.'
-            );
+            setFieldError('resumeUrl', 'Failed to upload resume. Please try again.');
           }
         }
       }
@@ -402,14 +382,11 @@ const NameEmailModal: React.FC<Props> = ({
               <XCircle className='w-12 h-12 text-red-600' />
             </div>
 
-            <h2 className='text-2xl font-bold text-gray-800 mb-4'>
-              Access Denied
-            </h2>
+            <h2 className='text-2xl font-bold text-gray-800 mb-4'>Access Denied</h2>
 
             <div className='bg-red-50 border border-red-200 rounded-lg p-4 mb-6 w-full'>
               <p className='text-red-700 text-sm leading-relaxed'>
-                {emailVerificationError ||
-                  'Your email is not authorized for this assessment.'}
+                {emailVerificationError || 'Your email is not authorized for this assessment.'}
               </p>
             </div>
 
@@ -463,12 +440,12 @@ const NameEmailModal: React.FC<Props> = ({
                       </svg>
                     </div>
                     <h2 className='text-xl font-bold text-gray-800 mb-2'>
-                      Unfortunately, you are not eligible for the{' '}
-                      {jobData?.jobTitle} assessment at this time.
+                      Unfortunately, you are not eligible for the {jobData?.jobTitle} assessment at
+                      this time.
                     </h2>
                     <p className='text-gray-600 text-lg leading-relaxed'>
-                      Your resume matches only {cvMatch ?? 40}% of the job
-                      requirements at this time.
+                      Your resume matches only {cvMatch ?? 40}% of the job requirements at this
+                      time.
                     </p>
                   </div>
                 </div>
@@ -483,8 +460,7 @@ const NameEmailModal: React.FC<Props> = ({
                   Pre-Registration Form
                 </h2>
                 <p className='text-gray-600 text-sm text-center mb-6'>
-                  Please fill in all required fields to continue with your
-                  assessment
+                  Please fill in all required fields to continue with your assessment
                 </p>
 
                 {/* Token Missing Warning */}
@@ -492,8 +468,7 @@ const NameEmailModal: React.FC<Props> = ({
                   <div className='mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start space-x-2'>
                     <AlertCircle className='h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5' />
                     <p className='text-sm text-yellow-800'>
-                      Assessment link token is missing. Please use the link from
-                      your email.
+                      Assessment link token is missing. Please use the link from your email.
                     </p>
                   </div>
                 )}
@@ -502,9 +477,7 @@ const NameEmailModal: React.FC<Props> = ({
                 {emailVerificationError && !showAccessDenied && (
                   <div className='mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start space-x-2'>
                     <AlertCircle className='h-5 w-5 text-red-600 flex-shrink-0 mt-0.5' />
-                    <p className='text-sm text-red-700'>
-                      {emailVerificationError}
-                    </p>
+                    <p className='text-sm text-red-700'>{emailVerificationError}</p>
                   </div>
                 )}
 
@@ -513,8 +486,7 @@ const NameEmailModal: React.FC<Props> = ({
                   <div className='mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-start space-x-2'>
                     <AlertCircle className='h-5 w-5 text-green-600 flex-shrink-0 mt-0.5' />
                     <p className='text-sm text-green-700'>
-                      ✓ Email verified successfully! You are authorized for this
-                      assessment.
+                      ✓ Email verified successfully! You are authorized for this assessment.
                     </p>
                   </div>
                 )}
@@ -527,10 +499,11 @@ const NameEmailModal: React.FC<Props> = ({
                         First Name <span className='text-red-600'>*</span>
                       </label>
                       <input
-                        className={`border ${errors.firstName && touched.firstName
+                        className={`border ${
+                          errors.firstName && touched.firstName
                             ? 'border-red-300 bg-red-50'
                             : 'border-gray-300 bg-white'
-                          } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
+                        } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
                         type='text'
                         placeholder='Enter your first name'
                         name='firstName'
@@ -538,9 +511,7 @@ const NameEmailModal: React.FC<Props> = ({
                         onChange={handleChange}
                       />
                       {errors.firstName && touched.firstName && (
-                        <p className='text-red-600 text-xs mt-1 text-left'>
-                          {errors.firstName}
-                        </p>
+                        <p className='text-red-600 text-xs mt-1 text-left'>{errors.firstName}</p>
                       )}
                     </div>
 
@@ -549,10 +520,11 @@ const NameEmailModal: React.FC<Props> = ({
                         Last Name <span className='text-red-600'>*</span>
                       </label>
                       <input
-                        className={`border ${errors.lastName && touched.lastName
+                        className={`border ${
+                          errors.lastName && touched.lastName
                             ? 'border-red-300 bg-red-50'
                             : 'border-gray-300 bg-white'
-                          } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
+                        } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
                         type='text'
                         placeholder='Enter your last name'
                         name='lastName'
@@ -560,9 +532,7 @@ const NameEmailModal: React.FC<Props> = ({
                         onChange={handleChange}
                       />
                       {errors.lastName && touched.lastName && (
-                        <p className='text-red-600 text-xs mt-1 text-left'>
-                          {errors.lastName}
-                        </p>
+                        <p className='text-red-600 text-xs mt-1 text-left'>{errors.lastName}</p>
                       )}
                     </div>
                   </div>
@@ -572,12 +542,13 @@ const NameEmailModal: React.FC<Props> = ({
                       Email Address <span className='text-red-600'>*</span>
                     </label>
                     <input
-                      className={`border ${isEmailVerified
+                      className={`border ${
+                        isEmailVerified
                           ? 'border-green-500 bg-green-50'
                           : errors.email && touched.email
                             ? 'border-red-300 bg-red-50'
                             : 'border-gray-300 bg-white'
-                        } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
+                      } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
                       type='email'
                       name='email'
                       placeholder='your.email@example.com'
@@ -595,13 +566,10 @@ const NameEmailModal: React.FC<Props> = ({
                       </div>
                     )}
                     {errors.email && touched.email && !isEmailVerified && (
-                      <p className='text-red-600 text-xs mt-1 text-left'>
-                        {errors.email}
-                      </p>
+                      <p className='text-red-600 text-xs mt-1 text-left'>{errors.email}</p>
                     )}
                     <p className='text-gray-600 text-xs mt-1 text-left'>
-                      Your email will be verified against the authorized
-                      candidate list
+                      Your email will be verified against the authorized candidate list
                     </p>
                   </div>
 
@@ -611,10 +579,11 @@ const NameEmailModal: React.FC<Props> = ({
                         Phone Number <span className='text-red-600'>*</span>
                       </label>
                       <input
-                        className={`border ${errors.mobile && touched.mobile
+                        className={`border ${
+                          errors.mobile && touched.mobile
                             ? 'border-red-300 bg-red-50'
                             : 'border-gray-300 bg-white'
-                          } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
+                        } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
                         type='tel'
                         name='mobile'
                         placeholder='e.g., +1 234-567-8900 or 1234567890'
@@ -622,9 +591,7 @@ const NameEmailModal: React.FC<Props> = ({
                         onChange={handleChange}
                       />
                       {errors.mobile && touched.mobile && (
-                        <p className='text-red-600 text-xs mt-1 text-left'>
-                          {errors.mobile}
-                        </p>
+                        <p className='text-red-600 text-xs mt-1 text-left'>{errors.mobile}</p>
                       )}
                     </div>
 
@@ -633,19 +600,18 @@ const NameEmailModal: React.FC<Props> = ({
                         Date of Birth <span className='text-red-600'>*</span>
                       </label>
                       <input
-                        className={`border ${errors.dob && touched.dob
+                        className={`border ${
+                          errors.dob && touched.dob
                             ? 'border-red-300 bg-red-50'
                             : 'border-gray-300 bg-white'
-                          } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
+                        } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
                         type='date'
                         name='dob'
                         value={values.dob}
                         onChange={handleChange}
                       />
                       {errors.dob && touched.dob && (
-                        <p className='text-red-600 text-xs mt-1 text-left'>
-                          {errors.dob}
-                        </p>
+                        <p className='text-red-600 text-xs mt-1 text-left'>{errors.dob}</p>
                       )}
                     </div>
                   </div>
@@ -678,8 +644,7 @@ const NameEmailModal: React.FC<Props> = ({
                           </span>
                           {cvMatch > 0 && (
                             <p className='text-green-400 text-sm font-medium text-left mt-2'>
-                              🎉 Great! Your resume matches {cvMatch}% with the
-                              job requirements.
+                              🎉 Great! Your resume matches {cvMatch}% with the job requirements.
                             </p>
                           )}
                         </div>
@@ -689,9 +654,7 @@ const NameEmailModal: React.FC<Props> = ({
                         </p>
                       )}
                       {errors.resumeUrl && touched.resumeUrl && (
-                        <p className='text-red-600 text-xs mt-1 text-left'>
-                          {errors.resumeUrl}
-                        </p>
+                        <p className='text-red-600 text-xs mt-1 text-left'>{errors.resumeUrl}</p>
                       )}
                       <input
                         id='file-upload'
@@ -713,23 +676,18 @@ const NameEmailModal: React.FC<Props> = ({
                   {/* Highest Qualification */}
                   <div>
                     <label className='block text-gray-700 text-sm mb-2 text-left'>
-                      Highest Qualification{' '}
-                      <span className='text-red-600'>*</span>
+                      Highest Qualification <span className='text-red-600'>*</span>
                     </label>
                     <select
                       value={values.highestQualification}
-                      onChange={(e) =>
-                        setFieldValue('highestQualification', e.target.value)
-                      }
-                      className={`w-full px-4 py-3 border ${errors.highestQualification &&
-                          touched.highestQualification
+                      onChange={(e) => setFieldValue('highestQualification', e.target.value)}
+                      className={`w-full px-4 py-3 border ${
+                        errors.highestQualification && touched.highestQualification
                           ? 'border-red-300 bg-red-50'
                           : 'border-gray-300 bg-white'
-                        } text-gray-800 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm sm:text-base`}
+                      } text-gray-800 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm sm:text-base`}
                     >
-                      <option value=''>
-                        Choose your highest qualification
-                      </option>
+                      <option value=''>Choose your highest qualification</option>
                       <option value='10th'>10th Standard / SSC</option>
                       <option value='12th'>12th Standard / HSC (+2)</option>
                       <option value='diploma'>Diploma</option>
@@ -738,12 +696,11 @@ const NameEmailModal: React.FC<Props> = ({
                       <option value='phd'>PhD / Doctorate</option>
                       <option value='other'>Other</option>
                     </select>
-                    {errors.highestQualification &&
-                      touched.highestQualification && (
-                        <p className='text-red-600 text-xs mt-1 text-left'>
-                          {errors.highestQualification}
-                        </p>
-                      )}
+                    {errors.highestQualification && touched.highestQualification && (
+                      <p className='text-red-600 text-xs mt-1 text-left'>
+                        {errors.highestQualification}
+                      </p>
+                    )}
                   </div>
 
                   {/* Degree Education - Show if highest qualification is diploma, bachelor, master, phd, or other */}
@@ -778,10 +735,11 @@ const NameEmailModal: React.FC<Props> = ({
                               Percentage (%)
                             </label>
                             <input
-                              className={`border ${errors.degreeEducation?.percentage
+                              className={`border ${
+                                errors.degreeEducation?.percentage
                                   ? 'border-red-300 bg-red-50'
                                   : 'border-gray-300 bg-white'
-                                } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
+                              } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
                               type='text'
                               placeholder='e.g., 85.5'
                               value={values.degreeEducation.percentage}
@@ -803,10 +761,11 @@ const NameEmailModal: React.FC<Props> = ({
                               Year of Passing
                             </label>
                             <input
-                              className={`border ${errors.degreeEducation?.yearOfPassing
+                              className={`border ${
+                                errors.degreeEducation?.yearOfPassing
                                   ? 'border-red-300 bg-red-50'
                                   : 'border-gray-300 bg-white'
-                                } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
+                              } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
                               type='text'
                               placeholder='e.g., 2020'
                               value={values.degreeEducation.yearOfPassing}
@@ -829,14 +788,9 @@ const NameEmailModal: React.FC<Props> = ({
 
                   {/* +2 Education - Show if highest qualification is 12th or higher */}
                   {values.highestQualification &&
-                    [
-                      '12th',
-                      'diploma',
-                      'bachelor',
-                      'master',
-                      'phd',
-                      'other',
-                    ].includes(values.highestQualification) && (
+                    ['12th', 'diploma', 'bachelor', 'master', 'phd', 'other'].includes(
+                      values.highestQualification
+                    ) && (
                       <div className='border-t border-gray-200 pt-4'>
                         <h3 className='text-gray-800 font-semibold mb-3 text-left text-sm sm:text-base'>
                           +2 / 12th Standard Education
@@ -864,10 +818,11 @@ const NameEmailModal: React.FC<Props> = ({
                               Percentage (%)
                             </label>
                             <input
-                              className={`border ${errors.plusTwoEducation?.percentage
+                              className={`border ${
+                                errors.plusTwoEducation?.percentage
                                   ? 'border-red-300 bg-red-50'
                                   : 'border-gray-300 bg-white'
-                                } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
+                              } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
                               type='text'
                               placeholder='e.g., 85.5'
                               value={values.plusTwoEducation.percentage}
@@ -889,10 +844,11 @@ const NameEmailModal: React.FC<Props> = ({
                               Year of Passing
                             </label>
                             <input
-                              className={`border ${errors.plusTwoEducation?.yearOfPassing
+                              className={`border ${
+                                errors.plusTwoEducation?.yearOfPassing
                                   ? 'border-red-300 bg-red-50'
                                   : 'border-gray-300 bg-white'
-                                } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
+                              } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
                               type='text'
                               placeholder='e.g., 2018'
                               value={values.plusTwoEducation.yearOfPassing}
@@ -915,15 +871,9 @@ const NameEmailModal: React.FC<Props> = ({
 
                   {/* 10th Education - Show if highest qualification is at least 10th */}
                   {values.highestQualification &&
-                    [
-                      '10th',
-                      '12th',
-                      'diploma',
-                      'bachelor',
-                      'master',
-                      'phd',
-                      'other',
-                    ].includes(values.highestQualification) && (
+                    ['10th', '12th', 'diploma', 'bachelor', 'master', 'phd', 'other'].includes(
+                      values.highestQualification
+                    ) && (
                       <div className='border-t border-gray-200 pt-4'>
                         <h3 className='text-gray-800 font-semibold mb-3 text-left text-sm sm:text-base'>
                           10th Standard / SSC Education
@@ -951,10 +901,11 @@ const NameEmailModal: React.FC<Props> = ({
                               Percentage (%)
                             </label>
                             <input
-                              className={`border ${errors.tenthEducation?.percentage
+                              className={`border ${
+                                errors.tenthEducation?.percentage
                                   ? 'border-red-300 bg-red-50'
                                   : 'border-gray-300 bg-white'
-                                } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
+                              } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
                               type='text'
                               placeholder='e.g., 90.2'
                               value={values.tenthEducation.percentage}
@@ -976,10 +927,11 @@ const NameEmailModal: React.FC<Props> = ({
                               Year of Passing
                             </label>
                             <input
-                              className={`border ${errors.tenthEducation?.yearOfPassing
+                              className={`border ${
+                                errors.tenthEducation?.yearOfPassing
                                   ? 'border-red-300 bg-red-50'
                                   : 'border-gray-300 bg-white'
-                                } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
+                              } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
                               type='text'
                               placeholder='e.g., 2016'
                               value={values.tenthEducation.yearOfPassing}
@@ -1006,10 +958,11 @@ const NameEmailModal: React.FC<Props> = ({
                       Current Location <span className='text-red-600'>*</span>
                     </label>
                     <input
-                      className={`border ${errors.location && touched.location
+                      className={`border ${
+                        errors.location && touched.location
                           ? 'border-red-300 bg-red-50'
                           : 'border-gray-300 bg-white'
-                        } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
+                      } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
                       type='text'
                       name='location'
                       placeholder='e.g., New York, USA or Bangalore, India'
@@ -1017,29 +970,69 @@ const NameEmailModal: React.FC<Props> = ({
                       onChange={handleChange}
                     />
                     {errors.location && touched.location && (
-                      <p className='text-red-600 text-xs mt-1 text-left'>
-                        {errors.location}
-                      </p>
+                      <p className='text-red-600 text-xs mt-1 text-left'>{errors.location}</p>
                     )}
+                  </div>
+
+                  {/* Region and Residence Location */}
+                  <div className='grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5'>
+                    <div>
+                      <label className='block text-gray-700 text-sm mb-2 text-left'>
+                        Region <span className='text-red-600'>*</span>
+                      </label>
+                      <input
+                        className={`border ${
+                          errors.region && touched.region
+                            ? 'border-red-300 bg-red-50'
+                            : 'border-gray-300 bg-white'
+                        } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
+                        type='text'
+                        name='region'
+                        placeholder='e.g., North America, Asia, Europe'
+                        value={values.region}
+                        onChange={handleChange}
+                      />
+                      {errors.region && touched.region && (
+                        <p className='text-red-600 text-xs mt-1 text-left'>{errors.region}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className='block text-gray-700 text-sm mb-2 text-left'>
+                        Residence Location <span className='text-red-600'>*</span>
+                      </label>
+                      <input
+                        className={`border ${
+                          errors.residenceLocation && touched.residenceLocation
+                            ? 'border-red-300 bg-red-50'
+                            : 'border-gray-300 bg-white'
+                        } text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg p-3 w-full transition-all duration-200 outline-none text-sm sm:text-base`}
+                        type='text'
+                        name='residenceLocation'
+                        placeholder='e.g., California, USA or Karnataka, India'
+                        value={values.residenceLocation}
+                        onChange={handleChange}
+                      />
+                      {errors.residenceLocation && touched.residenceLocation && (
+                        <p className='text-red-600 text-xs mt-1 text-left'>
+                          {errors.residenceLocation}
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   {/* Additional Skills */}
                   <div className='border-t border-gray-300 pt-4'>
                     <label className='block font-medium text-gray-700 mb-4 text-left text-sm sm:text-base'>
                       Additional Skills{' '}
-                      <span className='text-gray-600 font-normal text-xs'>
-                        (Optional)
-                      </span>
+                      <span className='text-gray-600 font-normal text-xs'>(Optional)</span>
                     </label>
                     <p className='text-gray-600 text-xs mb-3 text-left'>
-                      Add your technical and soft skills (e.g., JavaScript,
-                      Communication, Leadership)
+                      Add your technical and soft skills (e.g., JavaScript, Communication,
+                      Leadership)
                     </p>
                     {values.skills.map((skill, index) => (
-                      <div
-                        key={index}
-                        className='flex items-center space-x-2 mb-2'
-                      >
+                      <div key={index} className='flex items-center space-x-2 mb-2'>
                         <input
                           type='text'
                           value={skill}
@@ -1057,9 +1050,7 @@ const NameEmailModal: React.FC<Props> = ({
                         <button
                           type='button'
                           onClick={() => {
-                            let damiskills = values.skills.filter(
-                              (_, i) => i !== index
-                            );
+                            let damiskills = values.skills.filter((_, i) => i !== index);
                             setValues({
                               ...values,
                               skills: damiskills,
@@ -1099,17 +1090,13 @@ const NameEmailModal: React.FC<Props> = ({
                   <div className='flex justify-center items-center mt-4 space-x-2'>
                     <div className='h-6 w-6 border-4 border-blue-500 border-t-transparent rounded-full animate-spin'></div>
                     <span className='text-gray-600 text-sm'>
-                      {isVerifyingEmail
-                        ? 'Verifying email...'
-                        : 'Submitting...'}
+                      {isVerifyingEmail ? 'Verifying email...' : 'Submitting...'}
                     </span>
                   </div>
                 ) : (
                   <button
                     type='submit'
-                    disabled={
-                      isResumeUploading || isVerifyingEmail || !actualToken
-                    }
+                    disabled={isResumeUploading || isVerifyingEmail || !actualToken}
                     className='mt-5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold px-6 py-3 rounded-lg w-full transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl text-sm sm:text-base'
                   >
                     Submit & Verify Access
@@ -1117,8 +1104,7 @@ const NameEmailModal: React.FC<Props> = ({
                 )}
 
                 <p className='text-gray-600 text-xs mt-3 text-center'>
-                  Your email will be verified against the authorized candidate
-                  list.
+                  Your email will be verified against the authorized candidate list.
                 </p>
               </div>
             </form>
@@ -1141,17 +1127,13 @@ const NameEmailModal: React.FC<Props> = ({
             <p className='text-gray-700 leading-relaxed text-sm sm:text-base'>
               {jobData?.jobDescription}
             </p>
-            <h2 className='text-lg sm:text-xl font-bold text-gray-800 mt-4 mb-2'>
-              Requirements
-            </h2>
+            <h2 className='text-lg sm:text-xl font-bold text-gray-800 mt-4 mb-2'>Requirements</h2>
             <ul className='text-gray-700 list-disc ml-4 text-sm sm:text-base'>
               {jobData?.requirements.map((item: any, i) => (
                 <li key={i}>{item?.requirement ?? ''}</li>
               ))}
             </ul>
-            <h2 className='text-lg sm:text-xl font-bold text-gray-800 mt-4 mb-2'>
-              Responsibility
-            </h2>
+            <h2 className='text-lg sm:text-xl font-bold text-gray-800 mt-4 mb-2'>Responsibility</h2>
             <ul className='text-gray-700 list-disc ml-4 text-sm sm:text-base'>
               {jobData?.responsibilities.map((item: any, i) => (
                 <li key={i}>{item?.responsibility ?? ''}</li>
