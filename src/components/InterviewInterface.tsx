@@ -60,12 +60,13 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
   const [textAnswer, setTextAnswer] = useState<string>('');
   const [metrics, setMetrics] = useState<Record<string, unknown>>({});
   const [alerts, setAlerts] = useState<
-    Array<{ message?: string; type?: string; [k: string]: unknown }>
+    Array<{ message?: string; type?: string;[k: string]: unknown }>
   >([]);
   const [proctoringSessionData, setProctoringSessionData] = useState<{
     session_id?: string;
     [key: string]: unknown;
   } | null>(null);
+  const [remainingTime, setRemainingTime] = useState<number | null>(null);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const endInterviewRef = useRef<((updatedSession: InterviewSession) => Promise<void>) | null>(
@@ -240,8 +241,8 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         overallScore =
           damisession?.questions.length > 0
             ? Math.round(
-                damisession?.questions.reduce((sum: any, q: { score: any }) => sum + q.score, 0)
-              )
+              damisession?.questions.reduce((sum: any, q: { score: any }) => sum + q.score, 0)
+            )
             : 0;
         totalScore =
           damisession?.questions.length > 0
@@ -251,9 +252,9 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         averageResponseTime =
           damisession?.questions.length > 0
             ? Math.round(
-                damisession?.questions.reduce((sum, q) => sum + q.responseTime, 0) /
-                  damisession?.questions.length
-              )
+              damisession?.questions.reduce((sum, q) => sum + q.responseTime, 0) /
+              damisession?.questions.length
+            )
             : 0;
       }
       const gradeInfo = getGrade(overallScore);
@@ -469,7 +470,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
   ]);
 
   const handleNextQuestion = useCallback(
-    async (answerText?: string) => {
+    async (answerText?: string, isTimeout: boolean = false) => {
       if (!session || !currentQuestion || session.status === 'completed') {
         console.log('❌ Not ready to handle answer');
         return;
@@ -483,21 +484,24 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
       const isCommQuestion = currentQuestion?.type?.toLowerCase() === 'communication';
 
       // ------------------ VALIDATION ------------------
-      if (hasOptions) {
-        if (!trimmedAnswer) {
-          console.log('⚠️ Please select an option.');
-          return;
-        }
-      } else {
-        if (trimmedAnswer.length < 10) {
-          console.log('⚠️ Answer too short, waiting for more:', trimmedAnswer);
-          return;
-        }
+      // Skip validation if timeout occurred - allow submission with any answer (or no answer)
+      if (!isTimeout) {
+        if (hasOptions) {
+          if (!trimmedAnswer) {
+            console.log('⚠️ Please select an option.');
+            return;
+          }
+        } else {
+          if (trimmedAnswer.length < 10) {
+            console.log('⚠️ Answer too short, waiting for more:', trimmedAnswer);
+            return;
+          }
 
-        const wordCount = trimmedAnswer.split(/\s+/).filter(Boolean).length;
-        if (wordCount < 3) {
-          console.log('⚠️ Answer has too few words, waiting for more. Words:', wordCount);
-          return;
+          const wordCount = trimmedAnswer.split(/\s+/).filter(Boolean).length;
+          if (wordCount < 3) {
+            console.log('⚠️ Answer has too few words, waiting for more. Words:', wordCount);
+            return;
+          }
         }
       }
 
@@ -516,7 +520,14 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         let evaluation: { score: number; feedback: string };
 
         // ------------------ EVALUATION ------------------
-        if (!isCommQuestion && hasOptions) {
+        // If timeout occurred, set score to 0
+        if (isTimeout) {
+          evaluation = {
+            score: 0,
+            feedback: 'Time exceeded. No answer was provided within the expected duration.',
+          };
+          console.log('⏰ Timeout: Score set to 0');
+        } else if (!isCommQuestion && hasOptions) {
           // ✅ Non-communication + MCQ → match rightAnswer
           const right = (currentQuestion as any).rightAnswer;
           const rightTrim = right != null ? String(right).trim() : '';
@@ -661,7 +672,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
       setGeneratedAudioQuestions((prev) => new Set(prev).add(question.id));
 
       try {
-        setQuestionStartTime(Date.now());
+        // questionStartTime is already set when question changes in useEffect
         const voiceResponse = await elevenLabsService.textToSpeech(question?.question);
 
         if (interviewEndedRef.current) return;
@@ -697,6 +708,9 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
       resetTranscript();
       setTextAnswer('');
 
+      // Set question start time for all question types
+      setQuestionStartTime(Date.now());
+
       // Only generate audio for communication questions
       if (isCommunicationQuestion) {
         // Small delay to ensure state is reset before generating audio
@@ -707,6 +721,82 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
       }
     }
   }, [currentQuestion, generateQuestionAudio, resetTranscript, isCommunicationQuestion]);
+
+  // Timeout mechanism: automatically move to next question if expectedDuration is exceeded
+  // Also update remaining time every second for display
+  useEffect(() => {
+    if (
+      !interviewStarted ||
+      !session ||
+      !currentQuestion ||
+      interviewEndedRef.current ||
+      isProcessingResponse ||
+      isAnalyzing ||
+      session.status !== 'active'
+    ) {
+      setRemainingTime(null);
+      return;
+    }
+
+    const expectedDuration = currentQuestion.expectedDuration || 300; // Default to 5 minutes if not specified
+
+    // If questionStartTime is 0 or not set yet, wait for it to be set
+    if (questionStartTime === 0) {
+      setRemainingTime(expectedDuration);
+      return;
+    }
+
+    // Update remaining time every second
+    const updateRemainingTime = () => {
+      const elapsedTime = (Date.now() - questionStartTime) / 1000; // Convert to seconds
+      const remaining = Math.max(0, expectedDuration - elapsedTime);
+      setRemainingTime(remaining);
+
+      // If time has exceeded, trigger timeout
+      if (remaining <= 0) {
+        console.log('⏰ Timeout: Expected duration exceeded, moving to next question');
+        handleNextQuestion(transcript || textAnswer || 'No answer provided - time exceeded', true);
+        return;
+      }
+    };
+
+    // Initial update
+    updateRemainingTime();
+
+    // Update every second
+    const intervalId = setInterval(updateRemainingTime, 1000);
+
+    // Set up timeout to move to next question when time expires
+    const elapsedTime = (Date.now() - questionStartTime) / 1000;
+    const remainingTimeMs = Math.max(0, (expectedDuration - elapsedTime) * 1000);
+
+    const timeoutId = setTimeout(() => {
+      if (
+        !interviewEndedRef.current &&
+        !isProcessingResponse &&
+        !isAnalyzing &&
+        session.status === 'active'
+      ) {
+        console.log('⏰ Timeout: Expected duration reached, moving to next question');
+        handleNextQuestion(transcript || textAnswer || 'No answer provided - time exceeded', true);
+      }
+    }, remainingTimeMs);
+
+    return () => {
+      clearInterval(intervalId);
+      clearTimeout(timeoutId);
+    };
+  }, [
+    interviewStarted,
+    session,
+    currentQuestion,
+    questionStartTime,
+    isProcessingResponse,
+    isAnalyzing,
+    transcript,
+    textAnswer,
+    handleNextQuestion,
+  ]);
 
   const startInterview = async () => {
     if (!speechSupported) {
@@ -1023,8 +1113,8 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
                 isCompleted={isCompleted}
                 onForceComplete={async (reason: string) => {
                   console.log('reason', reason);
-                  // if (session)
-                  //   await endInterview(session);
+                  if (session)
+                    await endInterview(session);
                 }}
               />
 
@@ -1107,6 +1197,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
                     textAnswer={textAnswer}
                     setTextAnswer={setTextAnswer}
                     handleNextQuestion={handleNextQuestion}
+                    remainingTime={remainingTime}
                   />
 
                   <MatricsView metrics={metrics} alerts={alerts} />

@@ -17,6 +17,7 @@ interface QuestionDisplayProps {
   textAnswer: string;
   setTextAnswer: (text: string) => void;
   handleNextQuestion: (text: string) => void;
+  remainingTime: number | null;
 }
 
 export const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
@@ -32,19 +33,41 @@ export const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
   textAnswer,
   setTextAnswer,
   handleNextQuestion,
+  remainingTime,
 }) => {
+  // Format remaining time as MM:SS
+  const formatTime = (seconds: number | null): string => {
+    if (seconds === null || seconds < 0) return '00:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const isTimeLow = remainingTime !== null && remainingTime <= 30; // Less than 30 seconds
 
   return (
     <>
       {isCommunicationQuestion ? (
         /* Communication: Interview Question card */
         <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-6 md:p-8">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-slate-900">
-            🗣{" "}
-            <span className="text-indigo-600">
-              Interview Question
-            </span>
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold flex items-center gap-2 text-slate-900">
+              🗣{" "}
+              <span className="text-indigo-600">
+                Interview Question
+              </span>
+            </h2>
+            {remainingTime !== null && (
+              <div className={`flex items-center gap-2 px-4 py-2 rounded-lg font-mono font-semibold text-lg ${
+                isTimeLow 
+                  ? 'bg-red-100 text-red-700 border-2 border-red-300 animate-pulse' 
+                  : 'bg-indigo-100 text-indigo-700 border border-indigo-300'
+              }`}>
+                <span className="text-sm">⏱</span>
+                <span>{formatTime(remainingTime)}</span>
+              </div>
+            )}
+          </div>
           <p className="text-slate-700 leading-relaxed mb-8 text-base">
             {currentQuestion?.question ?? "..."}
           </p>
@@ -163,14 +186,26 @@ export const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
         /* Non-communication: Written Assessment or MCQ */
         <div className="bg-white rounded-2xl shadow-xl border border-amber-100 overflow-hidden">
           <div className="p-5 sm:p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <FileText className="w-5 h-5 text-amber-500" />
-              <h2 className="text-lg font-bold text-amber-700">
-                {currentQuestion?.options &&
-                  currentQuestion.options.length > 0
-                  ? "Multiple Choice"
-                  : "Written Assessment"}
-              </h2>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-amber-500" />
+                <h2 className="text-lg font-bold text-amber-700">
+                  {currentQuestion?.options &&
+                    currentQuestion.options.length > 0
+                    ? "Multiple Choice"
+                    : "Written Assessment"}
+                </h2>
+              </div>
+              {remainingTime !== null && (
+                <div className={`flex items-center gap-2 px-4 py-2 rounded-lg font-mono font-semibold text-lg ${
+                  isTimeLow 
+                    ? 'bg-red-100 text-red-700 border-2 border-red-300 animate-pulse' 
+                    : 'bg-amber-100 text-amber-700 border border-amber-300'
+                }`}>
+                  <span className="text-sm">⏱</span>
+                  <span>{formatTime(remainingTime)}</span>
+                </div>
+              )}
             </div>
             <p className="text-gray-800 text-base sm:text-lg leading-relaxed mb-4">
               {currentQuestion?.question ?? "..."}
