@@ -40,6 +40,17 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
     return 'text-red-600 bg-red-100';
   };
 
+  const getQuestionScoreColor = (score: number, type: string) => {
+    if (type === 'communication' || type === 'behavioral') {
+      if (score >= 8) return 'text-green-600 bg-green-100';
+      if (score >= 6) return 'text-blue-600 bg-blue-100';
+      if (score >= 4) return 'text-yellow-600 bg-yellow-100';
+      return 'text-red-600 bg-red-100';
+    }
+    if (score >= 1) return 'text-green-600 bg-green-100';
+    return 'text-red-600 bg-red-100';
+  };
+
   const getScoreGrade = (score: number) => {
     if (score >= 95) return 'A+';
     if (score >= 90) return 'A';
@@ -123,9 +134,8 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                     <>
                       <div className='text-center'>
                         <div
-                          className={`text-4xl font-bold mb-2 ${
-                            getScoreColor(candidateData?.overallScore ?? 0).split(' ')[0]
-                          }`}
+                          className={`text-4xl font-bold mb-2 ${getScoreColor(candidateData?.overallScore ?? 0).split(' ')[0]
+                            }`}
                         >
                           {candidateData?.overallScore}%
                         </div>
@@ -228,11 +238,10 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                         <button
                           key={tab.id}
                           onClick={() => setActiveTab(tab.id)}
-                          className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm ${
-                            activeTab === tab.id
-                              ? 'border-blue-500 text-blue-600'
-                              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                          }`}
+                          className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm ${activeTab === tab.id
+                            ? 'border-blue-500 text-blue-600'
+                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            }`}
                         >
                           <tab.icon className='h-4 w-4' />
                           <span>{tab.label}</span>
@@ -308,15 +317,14 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                               </div>
                               <div className='w-full bg-gray-200 rounded-full h-3'>
                                 <div
-                                  className={`h-3 rounded-full transition-all duration-1000 ${
-                                    item.score >= 90
-                                      ? 'bg-green-500'
-                                      : item.score >= 80
-                                        ? 'bg-blue-500'
-                                        : item.score >= 70
-                                          ? 'bg-yellow-500'
-                                          : 'bg-red-500'
-                                  }`}
+                                  className={`h-3 rounded-full transition-all duration-1000 ${item.score >= 90
+                                    ? 'bg-green-500'
+                                    : item.score >= 80
+                                      ? 'bg-blue-500'
+                                      : item.score >= 70
+                                        ? 'bg-yellow-500'
+                                        : 'bg-red-500'
+                                    }`}
                                   style={{ width: `${item.score}%` }}
                                 ></div>
                               </div>
@@ -385,7 +393,7 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                         <h3 className='font-semibold text-gray-900 mb-4'>Quick Stats</h3>
                         <div className='space-y-4'>
                           {candidateData?.quickStats &&
-                          Object.keys(candidateData.quickStats).length > 0 ? (
+                            Object.keys(candidateData.quickStats).length > 0 ? (
                             Object.entries(candidateData.quickStats).map(([skill, data]: any) => (
                               <div key={skill} className='flex justify-between items-center'>
                                 <span className='text-sm text-gray-600'>{camelToLabel(skill)}</span>
@@ -419,7 +427,7 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                 {activeTab === 'responses' && (
                   <div className='space-y-6'>
                     {session?.questions &&
-                      session?.questions.map((response, index) => (
+                      session?.questions.map((response: any, index) => (
                         <div key={index} className='bg-white rounded-xl shadow-sm p-6'>
                           <div className='flex items-start justify-between mb-4'>
                             <div className='flex-1'>
@@ -431,11 +439,12 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                                   {response?.responseTime?.toFixed(0)}s
                                 </span>
                                 <span
-                                  className={`px-2 py-1 rounded text-xs font-medium ${getScoreColor(
-                                    response?.score
+                                  className={`px-2 py-1 rounded text-xs font-medium ${getQuestionScoreColor(
+                                    response?.score,
+                                    response?.Question.type
                                   )}`}
                                 >
-                                  {response?.score} out of 10
+                                  {response?.Question.type === 'communication' || response?.Question.type === 'behavioral' ? `${response?.score} out of 10` : response?.score}
                                 </span>
                               </div>
                               <h3 className='text-lg font-medium text-gray-900 mb-3 text-left'>
@@ -487,15 +496,14 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                                   </div>
                                   <div className='w-full bg-gray-200 rounded-full h-2 mb-2'>
                                     <div
-                                      className={`h-2 rounded-full ${
-                                        data.overallAveragePercentage >= 90
-                                          ? 'bg-green-500'
-                                          : data.overallAveragePercentage >= 80
-                                            ? 'bg-blue-500'
-                                            : data.overallAveragePercentage >= 70
-                                              ? 'bg-yellow-500'
-                                              : 'bg-red-500'
-                                      }`}
+                                      className={`h-2 rounded-full ${data.overallAveragePercentage >= 90
+                                        ? 'bg-green-500'
+                                        : data.overallAveragePercentage >= 80
+                                          ? 'bg-blue-500'
+                                          : data.overallAveragePercentage >= 70
+                                            ? 'bg-yellow-500'
+                                            : 'bg-red-500'
+                                        }`}
                                       style={{
                                         width: `${data.overallAveragePercentage}%`,
                                       }}
@@ -614,15 +622,14 @@ const renderAnalysis = (title: string, score: number) => {
       </div>
       <div className='w-full bg-gray-200 rounded-full h-2'>
         <div
-          className={`h-2 rounded-full ${
-            score >= 90
-              ? 'bg-green-500'
-              : score >= 80
-                ? 'bg-blue-500'
-                : score >= 70
-                  ? 'bg-yellow-500'
-                  : 'bg-red-500'
-          }`}
+          className={`h-2 rounded-full ${score >= 90
+            ? 'bg-green-500'
+            : score >= 80
+              ? 'bg-blue-500'
+              : score >= 70
+                ? 'bg-yellow-500'
+                : 'bg-red-500'
+            }`}
           style={{
             width: `${score}%`,
           }}

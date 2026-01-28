@@ -432,7 +432,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
                 ...damiscores,
               },
             },
-            proctoring: alerts?.length > 0 ? 'Yes' : 'No',
+            proctoringStatus: alerts?.length > 0 ? 'Yes' : 'No',
             proctoringAlerts: alerts,
             ...interviewoverview,
           },
