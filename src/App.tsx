@@ -1306,11 +1306,13 @@ const App: React.FC = () => {
           setCandidateId(response.data.candidateId);
         }
         setIsModalLoading(false);
+        return { success: true, data: response.data }
       }
     } catch (error: any) {
       setIsModalLoading(false);
       setModalError(error?.response?.data?.error ?? null);
       console.error('Error joining job link:', error);
+      return { success: false, error: error?.response?.data?.error ?? "Failed to join job link" }
     }
   };
 

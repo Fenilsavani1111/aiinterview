@@ -237,27 +237,14 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
       let overallScore = 0;
       let totalScore = 0;
       let averageResponseTime = 0;
-      if (damisession?.questions) {
-        overallScore =
-          damisession?.questions.length > 0
-            ? Math.round(
-              damisession?.questions.reduce((sum: any, q: { score: any }) => sum + q.score, 0)
-            )
-            : 0;
-        totalScore =
-          damisession?.questions.length > 0
-            ? Math.round(damisession?.questions.reduce((sum, q) => sum + q.score, 0))
-            : 0;
 
-        averageResponseTime =
-          damisession?.questions.length > 0
-            ? Math.round(
-              damisession?.questions.reduce((sum, q) => sum + q.responseTime, 0) /
-              damisession?.questions.length
-            )
-            : 0;
+      if (damisession?.questions && damisession.questions.length > 0) {
+        averageResponseTime = Math.round(
+          damisession.questions.reduce((sum, q) => sum + q.responseTime, 0) /
+          damisession.questions.length
+        );
       }
-      const gradeInfo = getGrade(overallScore);
+
       let newQuestions: any[] = [];
       shuffledQuestions.map((ques: any) => {
         let question = { ...ques };
@@ -291,12 +278,15 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
       };
 
       // Calculate category-wise percentage based on question types
+      // Communication/Behavioral: max 10 per question, Technical (reasoning, arithmetic, subjective): max 1 per question
       const calculateCategoryPercentage = () => {
         if (!damisession?.questions || damisession.questions.length === 0) {
           return {
             totalScore: 0,
             overallScore: 0,
             overallPercentage: 0,
+            technicalPercentage: 0,
+            communicationPercentage: 0,
             categoryWisePercentage: {},
           };
         }
@@ -327,6 +317,11 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         });
 
         // Calculate scores for each answered question
+        let technicalScore = 0;
+        let technicalMax = 0;
+        let communicationScore = 0;
+        let communicationMax = 0;
+
         damisession.questions.forEach((response) => {
           // Find the original question to get its type
           const originalQuestion = shuffledQuestions.find((q) => q.question === response.question);
@@ -334,10 +329,29 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
             const questionType = originalQuestion.type?.toLowerCase() || 'other';
             const displayName = categoryDisplayNames[questionType] || questionType;
 
+            const isCommQuestion =
+              questionType === 'communication' || questionType === 'behavioral';
+            const isTechnicalQuestion =
+              questionType === 'reasoning' ||
+              questionType === 'arithmetic' ||
+              questionType === 'subjective';
+
+            const maxPerQuestion = isCommQuestion ? 10 : 1;
+
+            const rawScore = Math.max(0, Math.min(response.score ?? 0, maxPerQuestion));
+
             if (categoryScores[displayName]) {
-              categoryScores[displayName].totalScore += response.score || 0;
-              categoryScores[displayName].maxScore += 10; // Assuming max score per question is 10
+              categoryScores[displayName].totalScore += rawScore;
+              categoryScores[displayName].maxScore += maxPerQuestion;
               categoryScores[displayName].count += 1;
+            }
+
+            if (isTechnicalQuestion) {
+              technicalScore += rawScore;
+              technicalMax += maxPerQuestion;
+            } else if (isCommQuestion) {
+              communicationScore += rawScore;
+              communicationMax += maxPerQuestion;
             }
           }
         });
@@ -354,20 +368,44 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
           }
         });
 
-        const overallPercentage =
-          totalScore > 0
-            ? Math.round((overallScore / (damisession.questions.length * 10)) * 100)
-            : 0;
+        // Section-wise percentages
+        const technicalPercentage =
+          technicalMax > 0 ? Math.round((technicalScore / technicalMax) * 100) : 0;
+        const communicationPercentage =
+          communicationMax > 0 ? Math.round((communicationScore / communicationMax) * 100) : 0;
+
+        // Weighted final score: default 60% technical, 40% communication
+        // (Change these two constants if you want a different weighting)
+        const TECH_WEIGHT = 0.6;
+        const COMM_WEIGHT = 0.4;
+
+        const overallPercentage = Math.round(
+          technicalPercentage * TECH_WEIGHT + communicationPercentage * COMM_WEIGHT
+        );
+
+        const overallRawScore = technicalScore + communicationScore;
+        const overallMaxScore = technicalMax + communicationMax;
 
         return {
-          totalScore: totalScore,
-          overallScore: overallScore,
+          totalScore: overallMaxScore,
+          overallScore: Math.round(overallRawScore),
           overallPercentage: overallPercentage,
+          technicalScore: technicalScore,
+          communicationScore: communicationScore,
+          technicalTotal: technicalMax,
+          communicationTotal: communicationMax,
           categoryWisePercentage: categoryWisePercentage,
         };
       };
 
       const categoryPercentage = calculateCategoryPercentage();
+
+      // Use raw scores from category calculation (not percentages)
+      overallScore = categoryPercentage.overallScore;
+      totalScore = categoryPercentage.totalScore;
+
+      // Map weighted overall percentage (0–100) to 0–10 scale for grading
+      const gradeInfo = getGrade(categoryPercentage.overallPercentage / 10);
       // setIsModalLoading(true);
       const response = await axios.post(
         `${import.meta.env.VITE_AIINTERVIEW_API_KEY}/jobposts/update-candidate-byid`,
@@ -481,8 +519,6 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
       const hasOptions =
         Array.isArray(currentQuestion?.options) && currentQuestion.options.length > 0;
 
-      const isCommQuestion = currentQuestion?.type?.toLowerCase() === 'communication';
-
       // ------------------ VALIDATION ------------------
       // Skip validation if timeout occurred - allow submission with any answer (or no answer)
       if (!isTimeout) {
@@ -527,7 +563,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
             feedback: 'Time exceeded. No answer was provided within the expected duration.',
           };
           console.log('⏰ Timeout: Score set to 0');
-        } else if (!isCommQuestion && hasOptions) {
+        } else if (!isCommunicationQuestion && hasOptions) {
           // ✅ Non-communication + MCQ → match rightAnswer
           const right = (currentQuestion as any).rightAnswer;
           const rightTrim = right != null ? String(right).trim() : '';
@@ -535,12 +571,14 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
           if (rightTrim) {
             const correct = trimmedAnswer === rightTrim;
             evaluation = {
-              score: correct ? 10 : 0,
+              // For non-communication MCQs, treat as pass/fail: 1 or 0
+              score: correct ? 1 : 0,
               feedback: correct ? 'Correct!' : `Incorrect. The correct answer was: ${rightTrim}.`,
             };
           } else {
             evaluation = {
-              score: 5,
+              // No right answer configured; treat as neutral recorded response
+              score: 0,
               feedback: 'Answer recorded.',
             };
           }
@@ -548,13 +586,17 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
           console.log('📊 MCQ evaluation:', evaluation);
         } else {
           // ✅ Communication (any) OR Non-communication without options
-          evaluation = await processPhysicsQuestion(currentQuestion.question, trimmedAnswer);
+          evaluation = await processPhysicsQuestion(
+            currentQuestion.question,
+            trimmedAnswer,
+            isCommunicationQuestion
+          );
 
           console.log('📊 AI evaluation:', evaluation);
         }
 
         // ------------------ SPEAK FEEDBACK ------------------
-        if (isCommQuestion) {
+        if (isCommunicationQuestion) {
           setIsGeneratingAudio(true);
           try {
             console.log('🔊 Speaking feedback...');
@@ -636,6 +678,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
       shuffledQuestions.length,
       stopListening,
       playAudio,
+      isCommunicationQuestion,
     ]
   );
 

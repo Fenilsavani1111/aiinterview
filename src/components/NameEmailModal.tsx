@@ -73,6 +73,7 @@ const NameEmailModal: React.FC<Props> = ({
     setValues,
     handleSubmit,
     setFieldError,
+    resetForm,
   } = useFormik({
     initialValues: {
       firstName: '',
@@ -166,17 +167,12 @@ const NameEmailModal: React.FC<Props> = ({
         .required('Please enter your residence location'),
     }),
     onSubmit: async (formValues) => {
+      setIsVerifyingEmail(true);
+      setEmailVerificationError(null);
       if (!actualToken) {
         setEmailVerificationError(
           'Assessment link token is missing. Please use the link from your email.'
         );
-        return;
-      }
-
-      // Verify email before submission
-      const isAuthorized = await verifyEmailAccess(formValues.email?.trim() || '');
-
-      if (!isAuthorized) {
         return;
       }
 
@@ -241,7 +237,7 @@ const NameEmailModal: React.FC<Props> = ({
       }
 
       // If authorized, proceed with submission
-      onSubmitPopup(
+      const response: any = await onSubmitPopup(
         formValues.firstName?.trim() + ' ' + formValues.lastName?.trim(),
         formValues.email?.trim() || '',
         formValues.resumeUrl?.trim() || '',
@@ -254,62 +250,26 @@ const NameEmailModal: React.FC<Props> = ({
         formValues.region?.trim() || '',
         formValues.residenceLocation?.trim() || ''
       );
-    },
-  });
 
-  /**
-   * Verify email access against candidate list
-   */
-  const verifyEmailAccess = async (email: string): Promise<boolean> => {
-    if (!email) {
-      setEmailVerificationError('Please enter your email address');
-      return false;
-    }
-
-    if (!actualToken) {
-      setEmailVerificationError(
-        'Assessment link token is missing. Please use the link from your email.'
-      );
-      return false;
-    }
-
-    try {
-      setIsVerifyingEmail(true);
-      setEmailVerificationError(null);
-
-      const response = await axios.post(
-        `${import.meta.env.VITE_AIINTERVIEW_API_KEY}/jobposts/verify-email-for-interview`,
-        {
-          token: actualToken,
-          email: email.toLowerCase().trim(),
-        }
-      );
-
-      if (response.data.success) {
+      if (response?.success) {
         setIsEmailVerified(true);
         setEmailVerificationError(null);
         setShowAccessDenied(false);
-        return true;
+        setReadyForInterview(true);
+        setIsVerifyingEmail(false);
       } else {
-        setIsEmailVerified(false);
-        setEmailVerificationError(response.data.error || 'Email verification failed');
-        setShowAccessDenied(true);
-        return false;
-      }
-    } catch (error: any) {
-      const errorMessage =
-        error.response?.data?.error ||
-        error.response?.data?.message ||
-        'Unable to verify email. Please try again.';
+        const errorMessage =
+          response?.data?.error || response?.error || response?.message ||
+          'Unable to verify email. Please try again.';
 
-      setIsEmailVerified(false);
-      setEmailVerificationError(errorMessage);
-      setShowAccessDenied(true);
-      return false;
-    } finally {
-      setIsVerifyingEmail(false);
-    }
-  };
+        setIsEmailVerified(false);
+        setEmailVerificationError(errorMessage);
+        setShowAccessDenied(true);
+        setIsVerifyingEmail(false);
+        resetForm();
+      }
+    },
+  });
 
   const uploadResumeFile = async (file: any) => {
     try {

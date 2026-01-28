@@ -2,7 +2,9 @@ import OpenAI from 'openai';
 import { InterviewQuestion, JobPost, QuestionResponse } from '../types';
 
 export interface PhysicsEvaluation {
-  score: number; // 0-10
+  // For communication/behavioral questions: 0–10
+  // For other question types: 0 or 1 (pass/fail)
+  score: number;
   feedback: string;
   correctAnswer?: string;
 }
@@ -22,10 +24,12 @@ const openai = new OpenAI({
 const ttsCache = new Map<string, VoiceResponse>();
 
 // Enhanced interview question processing with deep context awareness
-// Enhanced interview question processing with deep context awareness
+// For communication/behavioral questions → score 0–10
+// For other question types → score normalized to 0 or 1
 export const processPhysicsQuestion = async (
   question: string,
-  answer: string
+  answer: string,
+  isCommunicationQuestion: boolean
 ): Promise<PhysicsEvaluation> => {
   try {
     console.log('🧠 Processing with deep context awareness...');
@@ -90,7 +94,7 @@ Please analyze this answer contextually and provide appropriate feedback based o
 
     try {
       const evaluation = JSON.parse(responseText);
-      const score = evaluation?.score ?? 0;
+      let score: number = evaluation?.score ?? 0;
       let feedback = evaluation.feedback || 'Thank you for your answer!';
 
       // Additional context-based feedback refinement
@@ -131,6 +135,12 @@ Please analyze this answer contextually and provide appropriate feedback based o
         feedback = getSupportiveResponse();
       }
 
+      // 🔢 Normalize scores for non-communication questions to 0 or 1 (pass/fail)
+      // Assumption: score >= 5 is treated as pass (1), otherwise fail (0).
+      if (!isCommunicationQuestion) {
+        score = score >= 5 ? 1 : 0;
+      }
+
       return {
         score,
         feedback,
@@ -140,38 +150,54 @@ Please analyze this answer contextually and provide appropriate feedback based o
 
       // Analyze answer content for fallback response
       const answerLower = answer.toLowerCase();
+      let score: number;
+      let feedback: string;
+
       if (answerLower.includes("don't know") || answer.trim().length < 10) {
-        return {
-          score: 1,
-          feedback: getEncouragingResponse(),
-        };
+        score = 1;
+        feedback = getEncouragingResponse();
       } else if (answer.length > 100) {
-        return {
-          score: 6,
-          feedback: 'Good detailed response!',
-        };
+        score = 6;
+        feedback = 'Good detailed response!';
       } else {
-        return {
-          score: 5,
-          feedback: 'Thank you for your answer!',
-        };
+        score = 5;
+        feedback = 'Thank you for your answer!';
       }
+
+      // Normalize for non-communication questions
+      if (!isCommunicationQuestion) {
+        score = score >= 5 ? 1 : 0;
+      }
+
+      return {
+        score,
+        feedback,
+      };
     }
   } catch (error) {
     console.log('Using supportive fallback due to API error');
 
     // Even in error cases, try to be contextual
     const answerLower = answer.toLowerCase();
+    let score: number;
+    let feedback: string;
+
     if (answerLower.includes("don't know") || answer.trim().length < 10) {
-      return {
-        score: 1,
-        feedback: getEncouragingResponse(),
-      };
+      score = 1;
+      feedback = getEncouragingResponse();
+    } else {
+      score = 5;
+      feedback = 'Thank you for participating!';
+    }
+
+    // Normalize for non-communication questions
+    if (!isCommunicationQuestion) {
+      score = score >= 5 ? 1 : 0;
     }
 
     return {
-      score: 5,
-      feedback: 'Thank you for participating!',
+      score,
+      feedback,
     };
   }
 };
