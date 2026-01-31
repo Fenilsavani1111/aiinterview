@@ -134,18 +134,18 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
                     <>
                       <div className='text-center'>
                         <div
-                          className={`text-4xl font-bold mb-2 ${getScoreColor(candidateData?.overallScore ?? 0).split(' ')[0]
+                          className={`text-4xl font-bold mb-2 ${getScoreColor(candidateData?.categoryPercentage?.overallPercentage ?? 0).split(' ')[0]
                             }`}
                         >
-                          {candidateData?.overallScore}%
+                          {candidateData?.categoryPercentage?.overallPercentage ?? 0}%
                         </div>
                         <div className='text-sm text-gray-600'>Overall Score</div>
                         <div
                           className={`inline-block px-3 py-1 rounded-full text-sm font-medium mt-2 ${getScoreColor(
-                            candidateData?.overallScore ?? 0
+                            candidateData?.categoryPercentage?.overallPercentage ?? 0
                           )}`}
                         >
-                          Grade: {getScoreGrade(candidateData?.overallScore ?? 0)}
+                          Grade: {getScoreGrade(candidateData?.categoryPercentage?.overallPercentage ?? 0)}
                         </div>
                       </div>
 

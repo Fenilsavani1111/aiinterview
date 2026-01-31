@@ -16,6 +16,7 @@ export interface JobPost {
   skills: string[];
   candidates?: [];
   enableVideoRecording?: boolean;
+  interviewStartDateTime?: string | null;
 }
 
 export interface StudentInterviewAnswer {
@@ -41,7 +42,14 @@ export interface Candidate {
   interviewDate: any;
   duration: number;
   status: 'completed' | 'inprogress' | 'pending' | 'under_review';
-  overallScore: number;
+  categoryPercentage?: {
+    totalScore: number;
+    overallScore: number;
+    overallPercentage: number;
+    categoryWisePercentage: {
+      [key: string]: number; // Dynamic keys for different categories like technical, confidence, leadership, etc.
+    };
+  };
   scores: {
     communication: number;
     technical: number;
