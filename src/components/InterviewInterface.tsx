@@ -1030,6 +1030,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
     [session, jobData, stopListening, stopAudio, stopRecording, stopCamera, uploadinterviewvideo]
   );
 
+
   // Update ref when endInterview changes
   useEffect(() => {
     endInterviewRef.current = endInterview;
@@ -1172,8 +1173,8 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
                 isCompleted={isCompleted}
                 onForceComplete={async (reason: string) => {
                   console.log('reason', reason);
-                  // if (session)
-                  //   await endInterview(session);
+                  if (session)
+                    await endInterview(session);
                 }}
               />
 
@@ -1197,7 +1198,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
                   />
 
                   {/* Voice Status (client_example): emerald bar, waveform, "Voice detected clearly" */}
-                  <div className='bg-white rounded-2xl shadow-lg border border-slate-200 p-4'>
+                  {isCommunicationQuestion && <div className='bg-white rounded-2xl shadow-lg border border-slate-200 p-4'>
                     <h3 className='text-sm font-semibold mb-4 flex items-center gap-2 text-slate-800'>
                       🎧 Voice Status
                     </h3>
@@ -1238,7 +1239,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
                         ? 'Voice detected clearly'
                         : 'Speak when ready'}
                     </p>
-                  </div>
+                  </div>}
                 </div>
 
                 {/* Right: lg:col-span-8 (client_example) */}

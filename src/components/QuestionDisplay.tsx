@@ -58,11 +58,10 @@ export const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
               </span>
             </h2>
             {remainingTime !== null && (
-              <div className={`flex items-center gap-2 px-4 py-2 rounded-lg font-mono font-semibold text-lg ${
-                isTimeLow 
-                  ? 'bg-red-100 text-red-700 border-2 border-red-300 animate-pulse' 
+              <div className={`flex items-center gap-2 px-4 py-2 rounded-lg font-mono font-semibold text-lg ${isTimeLow
+                  ? 'bg-red-100 text-red-700 border-2 border-red-300 animate-pulse'
                   : 'bg-indigo-100 text-indigo-700 border border-indigo-300'
-              }`}>
+                }`}>
                 <span className="text-sm">⏱</span>
                 <span>{formatTime(remainingTime)}</span>
               </div>
@@ -197,11 +196,10 @@ export const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
                 </h2>
               </div>
               {remainingTime !== null && (
-                <div className={`flex items-center gap-2 px-4 py-2 rounded-lg font-mono font-semibold text-lg ${
-                  isTimeLow 
-                    ? 'bg-red-100 text-red-700 border-2 border-red-300 animate-pulse' 
+                <div className={`flex items-center gap-2 px-4 py-2 rounded-lg font-mono font-semibold text-lg ${isTimeLow
+                    ? 'bg-red-100 text-red-700 border-2 border-red-300 animate-pulse'
                     : 'bg-amber-100 text-amber-700 border border-amber-300'
-                }`}>
+                  }`}>
                   <span className="text-sm">⏱</span>
                   <span>{formatTime(remainingTime)}</span>
                 </div>

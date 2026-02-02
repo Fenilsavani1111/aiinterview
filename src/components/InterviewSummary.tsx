@@ -131,27 +131,13 @@ export const InterviewSummary: React.FC<InterviewSummaryProps> = ({
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.6, type: 'spring' }}
             >
-              <div className='flex flex-col items-center justify-center gap-2 sm:gap-3 mb-3'>
-                {jobData?.logoUrl ? (
-                  <img
-                    src={jobData.logoUrl}
-                    alt=''
-                    className='h-10 sm:h-12 object-contain'
-                  />
-                ) : (
-                  <div className='p-2 sm:p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl sm:rounded-2xl text-white'>
-                    <Brain className='w-5 h-5 sm:w-8 sm:h-8' />
-                  </div>
-                )}
-                <h2 className='text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent'>
-                  {fetchQueData?.jobTitle ?? 'Physics'} Assessment AI
-                </h2>
+              <div className='p-6 bg-gradient-to-br from-green-100 to-blue-100 rounded-full mb-6 w-24 h-24 mx-auto flex items-center justify-center'>
+                <Award className='w-12 h-12 text-green-600' />
               </div>
-              <p className='text-gray-600 text-sm sm:text-base md:text-lg max-w-3xl mx-auto px-2'>
-                <strong>Smart Voice Detection!</strong> AI Assessment that understands when you're
-                speaking. Answer questions naturally at your own pace.
-              </p>
-              <p className='text-gray-600 text-center mt-3'>
+              <h2 className='text-center text-3xl font-bold text-gray-800 mb-4'>
+                Assessment Complete!
+              </h2>
+              <p className='text-gray-600 text-center'>
                 Your assessment has been successfully processed and saved.
               </p>
             </motion.div>
