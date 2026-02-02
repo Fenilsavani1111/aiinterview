@@ -47,6 +47,7 @@ const NameEmailModal: React.FC<Props> = ({
   const [fileName, setFileName] = useState('');
   const [isResumeUploading, setIsResumeUploading] = useState(false);
   const [cvMatch, setCvMatch] = useState<number>(-1);
+  const [email, setEmail] = useState<string>('');
 
   // Email verification states
   const [isVerifyingEmail, setIsVerifyingEmail] = useState(false);
@@ -168,6 +169,7 @@ const NameEmailModal: React.FC<Props> = ({
     }),
     onSubmit: async (formValues) => {
       setIsVerifyingEmail(true);
+      setEmail("")
       setEmailVerificationError(null);
       if (!actualToken) {
         setEmailVerificationError(
@@ -202,7 +204,7 @@ const NameEmailModal: React.FC<Props> = ({
         }
       }
 
-      // Include +2 if highest qualification is 12th or higher
+      // Include 12th if highest qualification is 12th or higher
       if (
         ['12th', 'diploma', 'bachelor', 'master', 'phd', 'other'].includes(
           formValues.highestQualification
@@ -257,6 +259,7 @@ const NameEmailModal: React.FC<Props> = ({
         setShowAccessDenied(false);
         setReadyForInterview(true);
         setIsVerifyingEmail(false);
+        setEmail("")
       } else {
         const errorMessage =
           response?.data?.error || response?.error || response?.message ||
@@ -266,6 +269,7 @@ const NameEmailModal: React.FC<Props> = ({
         setEmailVerificationError(errorMessage);
         setShowAccessDenied(true);
         setIsVerifyingEmail(false);
+        setEmail(formValues.email?.trim() || '');
         resetForm();
       }
     },
@@ -354,11 +358,11 @@ const NameEmailModal: React.FC<Props> = ({
               <p className='text-gray-700 text-sm break-all'>
                 <strong className='text-gray-800'>Email entered:</strong>
                 <br />
-                {values.email || 'No email provided'}
+                {email || 'No email provided'}
               </p>
             </div>
 
-            <button
+            {/* <button
               onClick={() => {
                 setShowAccessDenied(false);
                 setEmailVerificationError(null);
@@ -368,7 +372,7 @@ const NameEmailModal: React.FC<Props> = ({
               className='w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold px-6 py-3 rounded-lg transition-all duration-200 shadow-lg'
             >
               Try Different Email
-            </button>
+            </button> */}
           </div>
         </div>
       </div>
@@ -643,7 +647,7 @@ const NameEmailModal: React.FC<Props> = ({
                     >
                       <option value=''>Choose your highest qualification</option>
                       <option value='10th'>10th Standard / SSC</option>
-                      <option value='12th'>12th Standard / HSC (+2)</option>
+                      <option value='12th'>12th Standard / HSC</option>
                       <option value='diploma'>Diploma</option>
                       <option value='bachelor'>Bachelor's Degree</option>
                       <option value='master'>Master's Degree</option>
@@ -738,14 +742,14 @@ const NameEmailModal: React.FC<Props> = ({
                       </div>
                     )}
 
-                  {/* +2 Education - Show if highest qualification is 12th or higher */}
+                  {/* 12th Education - Show if highest qualification is 12th or higher */}
                   {values.highestQualification &&
                     ['12th', 'diploma', 'bachelor', 'master', 'phd', 'other'].includes(
                       values.highestQualification
                     ) && (
                       <div className='border-t border-gray-200 pt-4'>
                         <h3 className='text-gray-800 font-semibold mb-3 text-left text-sm sm:text-base'>
-                          +2 / 12th Standard Education
+                          12th Standard Education
                         </h3>
                         <div className='grid grid-cols-1 lg:grid-cols-3 gap-4'>
                           <div>
@@ -1058,16 +1062,21 @@ const NameEmailModal: React.FC<Props> = ({
       ) : (
         <div className='w-full max-w-2xl my-10 bg-white/70 backdrop-blur-sm p-6 sm:p-8 rounded-2xl sm:rounded-3xl shadow-xl border border-white/50'>
           <div className='mb-6'>
-            <div className='flex items-center justify-center gap-3 mb-4 flex-wrap'>
-              <div className='p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl text-white'>
-                <Brain className='w-6 h-6 sm:w-8 sm:h-8' />
-              </div>
+            <div className='flex flex-col items-center justify-center gap-3 mb-4 flex-wrap'>
+              {jobData?.logoUrl ? (
+                <img
+                  src={jobData.logoUrl}
+                  alt=''
+                  className='h-10 sm:h-12 object-contain'
+                />
+              ) : (
+                <div className='p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl text-white'>
+                  <Brain className='w-6 h-6 sm:w-8 sm:h-8' />
+                </div>
+              )}
               <h1 className='text-2xl sm:text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent text-center'>
                 {jobData?.jobTitle ?? 'Physics'} Assessment
               </h1>
-              <div className='p-3 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl text-white'>
-                <Camera className='w-6 h-6 sm:w-8 sm:h-8' />
-              </div>
             </div>
             <p className='text-gray-700 leading-relaxed text-sm sm:text-base'>
               {jobData?.jobDescription}

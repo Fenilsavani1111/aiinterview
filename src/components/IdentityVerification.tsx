@@ -91,7 +91,7 @@ const IdentityVerification: React.FC<IdentityVerificationProps> = ({
   useEffect(() => {
     if (videoRef.current && stream && step === 2) {
       videoRef.current.srcObject = stream;
-      videoRef.current.play().catch(() => {});
+      videoRef.current.play().catch(() => { });
     }
   }, [stream, step]);
 
@@ -114,6 +114,24 @@ const IdentityVerification: React.FC<IdentityVerificationProps> = ({
   };
 
   /* ----------------------- Step 3 ----------------------- */
+
+  const handleTryAgain = useCallback(() => {
+    setVerificationResult(null);
+    setError(null);
+    setLivePhotoBase64(null);
+    setStep(2);
+  }, []);
+
+  const handleSelectIdentityAgain = useCallback(() => {
+    setVerificationResult(null);
+    setError(null);
+    setIdType('');
+    setIdNumber('');
+    setIdImageBase64(null);
+    setIdImageFileName(null);
+    setLivePhotoBase64(null);
+    setStep(1);
+  }, []);
 
   const verifyIdentity = async () => {
     if (!idImageBase64 || !livePhotoBase64) return;
@@ -204,7 +222,7 @@ const IdentityVerification: React.FC<IdentityVerificationProps> = ({
           );
         })}
       </div>
-      <div className='flex justify-between mt-1.5 text-xs text-slate-500 max-w-[280px] mx-auto'>
+      <div className='flex space-x-12 mt-1.5 text-xs text-slate-500 max-w-[280px] mx-auto'>
         <span>ID document</span>
         <span>Face photo</span>
         <span>Verify</span>
@@ -364,27 +382,46 @@ const IdentityVerification: React.FC<IdentityVerificationProps> = ({
           )}
 
           {!loading && verificationResult && (
-            <div
-              className={`p-6 rounded-2xl border-2 text-left ${
-                verificationResult.verified
+            <div className='space-y-4'>
+              <div
+                className={`p-6 rounded-2xl border-2 text-left ${verificationResult.verified
                   ? 'bg-emerald-50/90 border-emerald-200/80 text-emerald-800'
                   : 'bg-red-50/90 border-red-200/80 text-red-800'
-              }`}
-            >
-              <div className='flex items-start gap-4'>
-                {verificationResult.verified ? (
-                  <CheckCircle className='w-10 h-10 text-emerald-600 flex-shrink-0' />
-                ) : (
-                  <XCircle className='w-10 h-10 text-red-600 flex-shrink-0' />
-                )}
-                <div>
-                  <p className='font-semibold'>{verificationResult.message}</p>
-                  <div className='mt-2 text-sm opacity-90'>
-                    Similarity: {verificationResult.similarity}% · Threshold:{' '}
-                    {verificationResult.threshold}%
+                  }`}
+              >
+                <div className='flex items-start gap-4'>
+                  {verificationResult.verified ? (
+                    <CheckCircle className='w-10 h-10 text-emerald-600 flex-shrink-0' />
+                  ) : (
+                    <XCircle className='w-10 h-10 text-red-600 flex-shrink-0' />
+                  )}
+                  <div>
+                    <p className='font-semibold'>{verificationResult.message}</p>
+                    <div className='mt-2 text-sm opacity-90'>
+                      Similarity: {verificationResult.similarity}% · Threshold:{' '}
+                      {verificationResult.threshold}%
+                    </div>
                   </div>
                 </div>
               </div>
+              {!verificationResult.verified && (
+                <div className='flex flex-col sm:flex-row gap-3'>
+                  <button
+                    type='button'
+                    onClick={handleTryAgain}
+                    className='flex-1 py-3.5 px-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2 transition-all'
+                  >
+                    <Camera className='w-5 h-5' /> Try again – capture new photo
+                  </button>
+                  <button
+                    type='button'
+                    onClick={handleSelectIdentityAgain}
+                    className='flex-1 py-3.5 px-2 bg-slate-600 hover:bg-slate-700 text-white font-semibold rounded-xl shadow-lg shadow-slate-500/25 flex items-center justify-center gap-2 transition-all'
+                  >
+                    <Upload className='w-5 h-5' /> Select identity again
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

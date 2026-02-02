@@ -36,17 +36,25 @@ const PreAssessmentSetup: React.FC<PreAssessmentSetupProps> = ({
     <div className='max-w-2xl mx-auto'>
       <div className='bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-slate-200/60 p-6 md:p-8'>
         {/* Header */}
-        <div className='text-center mb-8'>
-          <div className='inline-flex p-4 bg-gradient-to-br from-indigo-500/15 via-violet-500/10 to-purple-500/15 rounded-2xl shadow-inner mb-5 ring-1 ring-indigo-500/10'>
-            <Award className='w-10 h-10 text-indigo-600' strokeWidth={2} />
-          </div>
+        {/* <div className='text-center mb-8'>
+          {jobData?.logoUrl ? (
+            <img
+              src={jobData.logoUrl}
+              alt=''
+              className='w-14 h-14 sm:w-16 sm:h-16 mx-auto rounded-2xl object-contain border border-slate-200/60 bg-white p-2 shadow-inner mb-5 ring-1 ring-indigo-500/10'
+            />
+          ) : (
+            <div className='inline-flex p-4 bg-gradient-to-br from-indigo-500/15 via-violet-500/10 to-purple-500/15 rounded-2xl shadow-inner mb-5 ring-1 ring-indigo-500/10'>
+              <Award className='w-10 h-10 text-indigo-600' strokeWidth={2} />
+            </div>
+          )}
           <h2 className='text-2xl sm:text-3xl font-bold tracking-tight text-slate-800'>
             Smart {fetchQueData?.jobTitle ?? 'Assessment'}
           </h2>
           <p className='text-slate-500 mt-2 max-w-sm mx-auto text-sm sm:text-base'>
             Complete identity verification, then check your devices to start.
           </p>
-        </div>
+        </div> */}
 
         {/* Device Status */}
         <div className='grid grid-cols-3 gap-3 sm:gap-4 mb-6'>

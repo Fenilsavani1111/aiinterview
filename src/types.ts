@@ -17,6 +17,7 @@ export interface JobPost {
   candidates?: [];
   enableVideoRecording?: boolean;
   interviewStartDateTime?: string | null;
+  logoUrl?: string | null;
 }
 
 export interface StudentInterviewAnswer {
@@ -88,6 +89,15 @@ export interface Candidate {
     positive_indicators?: string[];
     recommendations?: string[];
   };
+  highestQualification?: string;
+  educations?: Array<{
+    type: 'tenth' | 'degree' | 'pg' | 'master' | 'phd' | 'plusTwo';
+    stream?: string;
+    percentage?: string;
+    yearOfPassing?: string;
+  }>;
+  proctoringStatus?: string;
+  proctoringAlerts?: Array<{ message?: string; type?: string; severity?: string; [k: string]: unknown }>;
 }
 
 export interface InterviewSession {

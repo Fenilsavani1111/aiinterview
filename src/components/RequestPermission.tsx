@@ -107,27 +107,27 @@ const RequestPermission: React.FC<RequestPermissionProps> = ({
         setMicrophoneReady(false);
         alert(
           '❌ Permission denied.\n\nPlease allow ' +
-            (jobData.enableVideoRecording ? 'microphone and camera' : 'microphone') +
-            " access in your browser settings and try again.\n\nSteps:\n1. Click the lock/camera icon in your browser's address bar\n2. Allow " +
-            (jobData.enableVideoRecording ? 'microphone and camera' : 'microphone') +
-            ' permissions\n3. Click "Request Permissions" again'
+          (jobData.enableVideoRecording ? 'microphone and camera' : 'microphone') +
+          " access in your browser settings and try again.\n\nSteps:\n1. Click the lock/camera icon in your browser's address bar\n2. Allow " +
+          (jobData.enableVideoRecording ? 'microphone and camera' : 'microphone') +
+          ' permissions\n3. Click "Request Permissions" again'
         );
       } else if (error.name === 'NotFoundError') {
         console.log('No devices found');
         setMicrophoneReady(false);
         alert(
           '❌ No ' +
-            (error.message.includes('video') ? 'camera' : 'microphone') +
-            ' found.\n\nPlease connect a ' +
-            (error.message.includes('video') ? 'camera' : 'microphone') +
-            ' and try again.'
+          (error.message.includes('video') ? 'camera' : 'microphone') +
+          ' found.\n\nPlease connect a ' +
+          (error.message.includes('video') ? 'camera' : 'microphone') +
+          ' and try again.'
         );
       } else if (error.name === 'NotReadableError') {
         setMicrophoneReady(false);
         alert(
           '❌ Device is already in use.\n\nPlease close other applications using your ' +
-            (error.message.includes('video') ? 'camera' : 'microphone') +
-            ' and try again.'
+          (error.message.includes('video') ? 'camera' : 'microphone') +
+          ' and try again.'
         );
       } else {
         console.log('Other error:', error.message);
@@ -161,7 +161,7 @@ const RequestPermission: React.FC<RequestPermissionProps> = ({
             </li>
 
             <li>
-              <strong>Do not switch tabs, open new tabs, or minimize the browser.</strong>
+              <strong>Do not switch tabs, open new tabs, or minimize the browser. </strong>
               Any such activity may <strong>end the interview immediately</strong>.
             </li>
 
@@ -190,7 +190,7 @@ const RequestPermission: React.FC<RequestPermissionProps> = ({
             </li>
 
             <li>
-              Your <strong>face and activity will be monitored and recorded</strong>
+              Your <strong>face and activity will be monitored and recorded </strong>
               for evaluation and security purposes only.
             </li>
 
@@ -223,10 +223,9 @@ const RequestPermission: React.FC<RequestPermissionProps> = ({
           onClick={requestPermissions}
           disabled={!agreed || isRequestingPermissions}
           className={`w-full py-2.5 rounded-lg text-white font-medium transition
-            ${
-              !agreed || isRequestingPermissions
-                ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-indigo-600 hover:bg-indigo-700'
+            ${!agreed || isRequestingPermissions
+              ? 'bg-gray-400 cursor-not-allowed'
+              : 'bg-indigo-600 hover:bg-indigo-700'
             }`}
         >
           {isRequestingPermissions ? 'Checking Permissions...' : 'Allow Camera & Start Interview'}

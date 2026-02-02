@@ -1067,13 +1067,22 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         {interviewStarted && session && session.status !== 'completed' ? (
           <header className='sticky top-0 z-50 bg-white/80 backdrop-blur border-b border-slate-200'>
             <div className='max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4'>
-              <div>
-                <p className='text-xs uppercase tracking-wide text-indigo-500 font-semibold'>
-                  AI Interview Platform
-                </p>
-                <h1 className='text-lg font-semibold text-slate-900'>
-                  {fetchQueData?.jobTitle ?? 'Assessment'} Assessment
-                </h1>
+              <div className='flex items-center gap-3'>
+                {jobData?.logoUrl && (
+                  <img
+                    src={jobData.logoUrl}
+                    alt=''
+                    className='h-10 sm:h-12 object-contain'
+                  />
+                )}
+                <div>
+                  <p className='text-xs uppercase tracking-wide text-indigo-500 font-semibold'>
+                    AI Interview Platform
+                  </p>
+                  <h1 className='text-lg font-semibold text-slate-900'>
+                    {fetchQueData?.jobTitle ?? 'Assessment'} Assessment
+                  </h1>
+                </div>
               </div>
               <div className='flex items-center gap-4'>
                 <span className='text-sm text-slate-500 whitespace-nowrap'>
@@ -1092,16 +1101,21 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
           </header>
         ) : (
           <div className='text-center mb-4 sm:mb-6'>
-            <div className='flex items-center justify-center gap-2 sm:gap-3 mb-2 sm:mb-3'>
-              <div className='p-2 sm:p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl sm:rounded-2xl text-white'>
-                <Brain className='w-5 h-5 sm:w-8 sm:h-8' />
-              </div>
+            <div className='flex flex-col items-center justify-center gap-2 sm:gap-3 mb-2 sm:mb-3'>
+              {jobData?.logoUrl ? (
+                <img
+                  src={jobData.logoUrl}
+                  alt=''
+                  className='h-10 sm:h-12 object-contain'
+                />
+              ) : (
+                <div className='p-2 sm:p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl sm:rounded-2xl text-white'>
+                  <Brain className='w-5 h-5 sm:w-8 sm:h-8' />
+                </div>
+              )}
               <h1 className='text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent'>
                 {fetchQueData?.jobTitle ?? 'Physics'} Assessment AI
               </h1>
-              <div className='p-2 sm:p-3 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl sm:rounded-2xl text-white'>
-                <Camera className='w-5 h-5 sm:w-8 sm:h-8' />
-              </div>
             </div>
             {session?.status !== 'completed' && (
               <p className='text-gray-600 text-sm sm:text-base md:text-lg max-w-3xl mx-auto px-2'>
@@ -1146,6 +1160,8 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
             isLoading={isLoading}
             errorText={errorText}
             candidateData={candidateData}
+            jobData={jobData}
+            fetchQueData={fetchQueData}
           />
         ) : (
           <>
@@ -1156,8 +1172,8 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
                 isCompleted={isCompleted}
                 onForceComplete={async (reason: string) => {
                   console.log('reason', reason);
-                  if (session)
-                    await endInterview(session);
+                  // if (session)
+                  //   await endInterview(session);
                 }}
               />
 

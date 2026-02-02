@@ -559,6 +559,7 @@ let staticJobData = {
   company: 'TechInfo ',
   department: 'Tax Advisory',
   location: ['Saudi Arabia'],
+  logoUrl: "https://aiinterviewbucket.s3.ap-south-1.amazonaws.com/Resumes/1770020418322-Echoleads.png",
   jobType: 'full-time',
   experienceLevel: 'mid',
   jobDescription:
