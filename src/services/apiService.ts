@@ -14,11 +14,49 @@ export interface VoiceResponse {
   duration: number;
 }
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: import.meta.env.VITE_OPENAI_API_KEY,
-  dangerouslyAllowBrowser: true,
-});
+type KeyValidationCacheEntry = { validatedAt: number };
+const keyValidationCache = new Map<string, KeyValidationCacheEntry>();
+const KEY_VALIDATION_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+function mapKeyTestError(error: any): string {
+  const status: number | undefined =
+    error?.status ?? error?.response?.status ?? error?.error?.status ?? error?.cause?.status;
+  const msg: string = error?.message || 'OpenAI key test failed';
+
+  // Requested meaning mapping
+  if (status === 401) return `❌ Key failed (401 Invalid / revoked key). ${msg}`;
+  if (status === 429) return `❌ Key failed (429 Quota exceeded / billing issue). ${msg}`;
+  if (status === 403) return `❌ Key failed (403 Org / project access issue). ${msg}`;
+
+  return `❌ Key failed. ${msg}${status ? ` (HTTP ${status})` : ''}`;
+}
+
+async function getValidatedOpenAiClient(llmKey: string): Promise<OpenAI> {
+  const key = (llmKey || '').trim();
+  if (!key) {
+    throw new Error('LLM key is missing. Please contact the admin to set the key for this job.');
+  }
+
+  const cached = keyValidationCache.get(key);
+  const isCacheValid = cached && Date.now() - cached.validatedAt < KEY_VALIDATION_TTL_MS;
+
+  const client = new OpenAI({
+    apiKey: key,
+    dangerouslyAllowBrowser: true,
+  });
+
+  if (!isCacheValid) {
+    // testKey() as requested
+    await client.responses.create({
+      model: 'gpt-4.1-mini',
+      input: 'Say hello in one word',
+    });
+    keyValidationCache.set(key, { validatedAt: Date.now() });
+    console.log('✅ LLM key works');
+  }
+
+  return client;
+}
 
 // Cache for TTS responses to avoid repeated API calls
 const ttsCache = new Map<string, VoiceResponse>();
@@ -27,13 +65,15 @@ const ttsCache = new Map<string, VoiceResponse>();
 // For communication/behavioral questions → score 0–10
 // For other question types → score normalized to 0 or 1
 export const processPhysicsQuestion = async (
+  llmKey: string,
   question: string,
   answer: string,
   isCommunicationQuestion: boolean
 ): Promise<PhysicsEvaluation> => {
   try {
     console.log('🧠 Processing with deep context awareness...');
-    const response = await openai.chat.completions.create({
+    const client = await getValidatedOpenAiClient(llmKey);
+    const response = await client.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         {
@@ -120,10 +160,7 @@ Please analyze this answer contextually and provide appropriate feedback based o
           'Brilliant explanation!',
           'Superb understanding!',
         ];
-        feedback =
-          positiveResponses[
-          Math.floor(Math.random() * positiveResponses.length)
-          ];
+        feedback = positiveResponses[Math.floor(Math.random() * positiveResponses.length)];
       }
       // Detect if student shows partial understanding
       else if (score >= 4 && score < 7) {
@@ -175,25 +212,12 @@ Please analyze this answer contextually and provide appropriate feedback based o
       };
     }
   } catch (error) {
-    console.log('Using supportive fallback due to API error');
+    const errMsg = mapKeyTestError(error);
+    console.error('❌ Key/AI failed:', errMsg);
 
-    // Even in error cases, try to be contextual
-    const answerLower = answer.toLowerCase();
-    let score: number;
-    let feedback: string;
-
-    if (answerLower.includes("don't know") || answer.trim().length < 10) {
-      score = 1;
-      feedback = getEncouragingResponse();
-    } else {
-      score = 5;
-      feedback = 'Thank you for participating!';
-    }
-
-    // Normalize for non-communication questions
-    if (!isCommunicationQuestion) {
-      score = score >= 5 ? 1 : 0;
-    }
+    // In key/API error cases, surface the reason to the user.
+    let score: number = isCommunicationQuestion ? 0 : 0;
+    let feedback: string = errMsg;
 
     return {
       score,
@@ -233,9 +257,7 @@ const getSupportiveResponse = (): string => {
 };
 
 // Enhanced TTS with better error handling and fallback to browser TTS
-export const textToSpeech = async (
-  text: string
-): Promise<VoiceResponse | null> => {
+export const textToSpeech = async (text: string): Promise<VoiceResponse | null> => {
   // Check cache first
   const cacheKey = text.toLowerCase().trim();
   if (ttsCache.has(cacheKey)) {
@@ -260,28 +282,25 @@ export const textToSpeech = async (
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
 
-      const response = await fetch(
-        `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
-        {
-          method: 'POST',
-          headers: {
-            Accept: 'audio/mpeg',
-            'Content-Type': 'application/json',
-            'xi-api-key': apiKey,
+      const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+        method: 'POST',
+        headers: {
+          Accept: 'audio/mpeg',
+          'Content-Type': 'application/json',
+          'xi-api-key': apiKey,
+        },
+        body: JSON.stringify({
+          text: text,
+          model_id: 'eleven_turbo_v2',
+          voice_settings: {
+            stability: 0.6,
+            similarity_boost: 0.7,
+            style: 0.1,
+            use_speaker_boost: false,
           },
-          body: JSON.stringify({
-            text: text,
-            model_id: 'eleven_turbo_v2',
-            voice_settings: {
-              stability: 0.6,
-              similarity_boost: 0.7,
-              style: 0.1,
-              use_speaker_boost: false,
-            },
-          }),
-          signal: controller.signal,
-        }
-      );
+        }),
+        signal: controller.signal,
+      });
 
       clearTimeout(timeoutId);
 
@@ -459,28 +478,25 @@ export const preloadCommonTTS = async () => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
 
-      const response = await fetch(
-        `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
-        {
-          method: 'POST',
-          headers: {
-            Accept: 'audio/mpeg',
-            'Content-Type': 'application/json',
-            'xi-api-key': apiKey,
+      const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+        method: 'POST',
+        headers: {
+          Accept: 'audio/mpeg',
+          'Content-Type': 'application/json',
+          'xi-api-key': apiKey,
+        },
+        body: JSON.stringify({
+          text: phrase,
+          model_id: 'eleven_turbo_v2',
+          voice_settings: {
+            stability: 0.6,
+            similarity_boost: 0.7,
+            style: 0.1,
+            use_speaker_boost: false,
           },
-          body: JSON.stringify({
-            text: phrase,
-            model_id: 'eleven_turbo_v2',
-            voice_settings: {
-              stability: 0.6,
-              similarity_boost: 0.7,
-              style: 0.1,
-              use_speaker_boost: false,
-            },
-          }),
-          signal: controller.signal,
-        }
-      );
+        }),
+        signal: controller.signal,
+      });
 
       clearTimeout(timeoutId);
 
@@ -494,10 +510,7 @@ export const preloadCommonTTS = async () => {
         const result = { audioUrl, duration };
         ttsCache.set(cacheKey, result);
 
-        console.log(
-          '✅ Preloaded contextual phrase:',
-          phrase.substring(0, 30) + '...'
-        );
+        console.log('✅ Preloaded contextual phrase:', phrase.substring(0, 30) + '...');
       }
     } catch (error) {
       // Silently fail for preloading
@@ -510,9 +523,10 @@ export const preloadCommonTTS = async () => {
 };
 
 // Get Data from resume pdf
-export const getDataFromResumePdf = async (pdfText: string) => {
+export const getDataFromResumePdf = async (llmKey: string, pdfText: string) => {
   try {
-    const response = await openai.chat.completions.create({
+    const client = await getValidatedOpenAiClient(llmKey);
+    const response = await client.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         {
@@ -560,126 +574,42 @@ Respond only in this JSON format:
     const evaluation = JSON.parse(responseText);
     let data:
       | {
-        name: string;
-        email: string;
-        phone: string;
-        experienceLevel: string;
-        designation: string;
-        location: string;
-        skills: string[];
-      }
+          name: string;
+          email: string;
+          phone: string;
+          experienceLevel: string;
+          designation: string;
+          location: string;
+          skills: string[];
+        }
       | undefined = evaluation?.job_data ?? {
-        name: '',
-        email: '',
-        phone: '',
-        experienceLevel: '',
-        designation: '',
-        location: '',
-        skills: [],
-      };
+      name: '',
+      email: '',
+      phone: '',
+      experienceLevel: '',
+      designation: '',
+      location: '',
+      skills: [],
+    };
     return data;
   } catch (error) {
     console.log('error', error);
   }
 };
 
-// get overview skill breakdown with ai
-export const getInterviewOverviewWithAI = async (
-  interviewQuestions: InterviewQuestion[],
-  candidateInterview: QuestionResponse[]
-) => {
-  try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: `You are an assistant that converts interview question data and candidate answers into a single dashboard-ready JSON object and short human summary. Follow these rules exactly:
-1) Treat numeric 'score' as out of 10. Do NOT invent scores for missing answers.
-2) For each category (communicationSkills, technicalKnowledge, confidenceLevel, problemSolving, leadershipPotential) compute and return:
-   - answeredAveragePercentage: average of only answered questions *10, rounded to 1 decimal place (zero string if none answered)
-   - overallAveragePercentage: average across all questions treating missing answers as 0, rounded to 1 decimal place (zero if zero questions)
-   - summary: one-sentence description of performance for that category
-3) Also return counts: answeredCount, totalQuestions.
-4) Category mapping:
-   - communicationSkills: type == 'behavioral'
-   - technicalKnowledge: type == 'technical'
-   - confidenceLevel: aggregate across all answered and all questions
-5) Build quickStats using the percentage ranges but **return only the label** (Excellent, Good, Fair, Poor) without the numeric ranges. For example, if the percentage falls in 40-59.9%, the output should be "Fair" (do not include "40-59.9%" in the string).
-6) Recommendation: one of {"Highly Recommended", "Recommended", "Consider with reservations", "Not Recommended"}, include a 'summary' field explaining reasoning. Weight: 60% Tech, 40% Communication.
-7) Include meta.assumption: "Scores are out of 10. Missing answers are handled in two ways (answered-only averages and overall averages treating missing required answers as 0). calculationDate: ${new Date().toISOString()}"
-8) Output JSON must include: meta, performanceBreakdown (with percentages and summary), quickStats, recommendations (with summary), aiEvaluationSummary.
-9) aiEvaluationSummary must include: a 'summary' string, a 'keyStrengths' array, and an 'areasOfGrowth' array. Derive these from the computed category results; do not contradict the numbers.
-10) Determinism: Be deterministic (temperature 0). Do not include anything except the single JSON object followed by a 2–6 line human summary.`,
-        },
-        {
-          role: 'user',
-          content: `Produce professional interview evaluation in JSON and short human summary for the following data. Use the rules in the system message exactly.
-
----
-questions: [
-${interviewQuestions
-              .map(
-                (v) =>
-                  `{
-  "id": ${v.id},
-  "question": ${JSON.stringify(v.question)},
-  "type": ${JSON.stringify(v.type)},
-  "difficulty": ${JSON.stringify(v.difficulty)},
-  "expectedDuration": ${v.expectedDuration},
-  "category": ${JSON.stringify(v.category)},
-  "suggestedAnswers": [${v.suggestedAnswers
-                    ?.map((s: any) => JSON.stringify(s))
-                    .join(', ')}],
-  "isRequired": ${v.isRequired},
-  "order": ${v.order}
-}`
-              )
-              .join(',\n')}
-]
-
-candidateAnswers: [
-${candidateInterview
-              .map(
-                (v) =>
-                  `{
-  "question": ${JSON.stringify(v.question)},
-  "userAnswer": ${JSON.stringify(v.userAnswer)},
-  "aiEvaluation": ${JSON.stringify(v.aiEvaluation)},
-  "score": ${v.score},
-  "responseTime": ${v.responseTime}
-}`
-              )
-              .join(',\n')}
-]
----`,
-        },
-      ],
-      temperature: 0.3,
-      response_format: {
-        type: 'json_object',
-      },
-    });
-    let responseText = response.choices[0]?.message?.content ?? '';
-    const evaluation = JSON.parse(responseText);
-    return evaluation;
-  } catch (error) {
-    console.log('error', error);
-  }
-};
-
 // get behaviour analysis using python api
-export const getBehaviouralAnalysis = async (
-  session_id: string
-) => {
+export const getBehaviouralAnalysis = async (session_id: string) => {
   try {
-    const response = await fetch(`${import.meta.env.VITE_PROCTORING_API_URL}/api/sessions/${session_id}/end`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({}),
-    });
+    const response = await fetch(
+      `${import.meta.env.VITE_PROCTORING_API_URL}/api/sessions/${session_id}/end`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      }
+    );
     let res = await response.json();
     console.log('res', res);
     return res;
@@ -692,12 +622,10 @@ export const getBehaviouralAnalysis = async (
 };
 
 // get overview skill breakdown with ai
-export const getCvMatchWithJD = async (
-  jobdetails: JobPost,
-  resumetext: string
-) => {
+export const getCvMatchWithJD = async (llmKey: string, jobdetails: JobPost, resumetext: string) => {
   try {
-    const response = await openai.chat.completions.create({
+    const client = await getValidatedOpenAiClient(llmKey);
+    const response = await client.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         {

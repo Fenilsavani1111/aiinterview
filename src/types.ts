@@ -1,3 +1,17 @@
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  experience: string;
+  position: string;
+  skills: string[];
+  linkedinUrl?: string;
+  resumeUrl?: string;
+  createdAt: Date;
+  llmKey?: string;
+}
+
 export interface JobPost {
   id?: string;
   jobTitle: string;
@@ -18,6 +32,7 @@ export interface JobPost {
   enableVideoRecording?: boolean;
   interviewStartDateTime?: string | null;
   logoUrl?: string | null;
+  User?: User;
 }
 
 export interface StudentInterviewAnswer {
@@ -97,7 +112,12 @@ export interface Candidate {
     yearOfPassing?: string;
   }>;
   proctoringStatus?: string;
-  proctoringAlerts?: Array<{ message?: string; type?: string; severity?: string; [k: string]: unknown }>;
+  proctoringAlerts?: Array<{
+    message?: string;
+    type?: string;
+    severity?: string;
+    [k: string]: unknown;
+  }>;
 }
 
 export interface InterviewSession {

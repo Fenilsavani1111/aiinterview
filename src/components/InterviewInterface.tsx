@@ -587,6 +587,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
         } else {
           // ✅ Communication (any) OR Non-communication without options
           evaluation = await processPhysicsQuestion(
+            jobData?.User?.llmKey ?? '',
             currentQuestion.question,
             trimmedAnswer,
             isCommunicationQuestion
@@ -1030,7 +1031,6 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
     [session, jobData, stopListening, stopAudio, stopRecording, stopCamera, uploadinterviewvideo]
   );
 
-
   // Update ref when endInterview changes
   useEffect(() => {
     endInterviewRef.current = endInterview;
@@ -1070,11 +1070,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
             <div className='max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4'>
               <div className='flex items-center gap-3'>
                 {jobData?.logoUrl && (
-                  <img
-                    src={jobData.logoUrl}
-                    alt=''
-                    className='h-10 sm:h-12 object-contain'
-                  />
+                  <img src={jobData.logoUrl} alt='' className='h-10 sm:h-12 object-contain' />
                 )}
                 <div>
                   <p className='text-xs uppercase tracking-wide text-indigo-500 font-semibold'>
@@ -1093,7 +1089,10 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
                   <div
                     className='h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-300'
                     style={{
-                      width: `${shuffledQuestions.length ? ((session.currentQuestionIndex + 1) / shuffledQuestions.length) * 100 : 0}%`,
+                      width: `${shuffledQuestions.length
+                          ? ((session.currentQuestionIndex + 1) / shuffledQuestions.length) * 100
+                          : 0
+                        }%`,
                     }}
                   />
                 </div>
@@ -1104,11 +1103,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
           <div className='text-center mb-4 sm:mb-6'>
             <div className='flex flex-col items-center justify-center gap-2 sm:gap-3 mb-2 sm:mb-3'>
               {jobData?.logoUrl ? (
-                <img
-                  src={jobData.logoUrl}
-                  alt=''
-                  className='h-10 sm:h-12 object-contain'
-                />
+                <img src={jobData.logoUrl} alt='' className='h-10 sm:h-12 object-contain' />
               ) : (
                 <div className='p-2 sm:p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl sm:rounded-2xl text-white'>
                   <Brain className='w-5 h-5 sm:w-8 sm:h-8' />
@@ -1173,8 +1168,7 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
                 isCompleted={isCompleted}
                 onForceComplete={async (reason: string) => {
                   console.log('reason', reason);
-                  if (session)
-                    await endInterview(session);
+                  if (session) await endInterview(session);
                 }}
               />
 
@@ -1198,48 +1192,53 @@ const InterviewInterface: React.FC<InterviewInterfaceProps> = ({
                   />
 
                   {/* Voice Status (client_example): emerald bar, waveform, "Voice detected clearly" */}
-                  {isCommunicationQuestion && <div className='bg-white rounded-2xl shadow-lg border border-slate-200 p-4'>
-                    <h3 className='text-sm font-semibold mb-4 flex items-center gap-2 text-slate-800'>
-                      🎧 Voice Status
-                    </h3>
-                    <div className='flex items-center justify-between mb-2'>
-                      <span className='text-sm text-slate-600'>Speaking</span>
-                      <span
-                        className={`text-xs px-3 py-1 rounded-full font-medium ${isCommunicationQuestion && isListening && !hasFinishedSpeaking ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}
-                      >
-                        {isCommunicationQuestion && isListening && !hasFinishedSpeaking
-                          ? 'Active'
-                          : 'Inactive'}
-                      </span>
-                    </div>
-                    <div className='flex items-center justify-between mb-3'>
-                      <span className='text-sm text-slate-600'>Voice Strength</span>
-                      <span className='text-sm font-medium text-slate-700'>{voiceActivity}%</span>
-                    </div>
-                    <div className='w-full bg-slate-200 rounded-full h-2 overflow-hidden'>
-                      <div
-                        className='h-2 bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full transition-all'
-                        style={{ width: `${Math.min(100, voiceActivity)}%` }}
-                      />
-                    </div>
-                    <div className='mt-4 flex items-end justify-center gap-1 h-8'>
-                      {[3, 6, 8, 5, 7].map((h, i) => (
+                  {isCommunicationQuestion && (
+                    <div className='bg-white rounded-2xl shadow-lg border border-slate-200 p-4'>
+                      <h3 className='text-sm font-semibold mb-4 flex items-center gap-2 text-slate-800'>
+                        🎧 Voice Status
+                      </h3>
+                      <div className='flex items-center justify-between mb-2'>
+                        <span className='text-sm text-slate-600'>Speaking</span>
                         <span
-                          key={i}
-                          className='w-1 bg-emerald-500 rounded-full animate-pulse'
-                          style={{
-                            height: `${h * 4}px`,
-                            animationDelay: `${i * 75}ms`,
-                          }}
+                          className={`text-xs px-3 py-1 rounded-full font-medium ${isCommunicationQuestion && isListening && !hasFinishedSpeaking
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-slate-100 text-slate-500'
+                            }`}
+                        >
+                          {isCommunicationQuestion && isListening && !hasFinishedSpeaking
+                            ? 'Active'
+                            : 'Inactive'}
+                        </span>
+                      </div>
+                      <div className='flex items-center justify-between mb-3'>
+                        <span className='text-sm text-slate-600'>Voice Strength</span>
+                        <span className='text-sm font-medium text-slate-700'>{voiceActivity}%</span>
+                      </div>
+                      <div className='w-full bg-slate-200 rounded-full h-2 overflow-hidden'>
+                        <div
+                          className='h-2 bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full transition-all'
+                          style={{ width: `${Math.min(100, voiceActivity)}%` }}
                         />
-                      ))}
+                      </div>
+                      <div className='mt-4 flex items-end justify-center gap-1 h-8'>
+                        {[3, 6, 8, 5, 7].map((h, i) => (
+                          <span
+                            key={i}
+                            className='w-1 bg-emerald-500 rounded-full animate-pulse'
+                            style={{
+                              height: `${h * 4}px`,
+                              animationDelay: `${i * 75}ms`,
+                            }}
+                          />
+                        ))}
+                      </div>
+                      <p className='mt-3 text-xs text-slate-500 text-center'>
+                        {isCommunicationQuestion && isListening
+                          ? 'Voice detected clearly'
+                          : 'Speak when ready'}
+                      </p>
                     </div>
-                    <p className='mt-3 text-xs text-slate-500 text-center'>
-                      {isCommunicationQuestion && isListening
-                        ? 'Voice detected clearly'
-                        : 'Speak when ready'}
-                    </p>
-                  </div>}
+                  )}
                 </div>
 
                 {/* Right: lg:col-span-8 (client_example) */}
